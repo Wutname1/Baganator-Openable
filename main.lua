@@ -210,6 +210,30 @@ local function OnCornerWidgetUpdate(cornerFrame, itemDetails)
 	return false
 end
 
+-- Register corner widget at top level like Baganator's own widgets
+print('BaganatorOpenable: Attempting direct registration at top level')
+if Baganator and Baganator.API and Baganator.API.RegisterCornerWidget then
+	print('BaganatorOpenable: Baganator API found, registering corner widget')
+	local success, err = pcall(function()
+		Baganator.API.RegisterCornerWidget(
+			'Openable Items', -- label
+			'baganator_openable_items', -- id
+			OnCornerWidgetUpdate, -- onUpdate
+			OnCornerWidgetInit, -- onInit
+			{corner = 'bottom_right', priority = 1}, -- defaultPosition
+			false -- isFast
+		)
+	end)
+	
+	if success then
+		print('BaganatorOpenable: Direct registration SUCCESS!')
+	else
+		print('BaganatorOpenable: Direct registration ERROR: ' .. tostring(err))
+	end
+else
+	print('BaganatorOpenable: Baganator API not available at top level')
+end
+
 function addon:OnInitialize()
 	-- Debug SUI logging setup
 	if SUI then
@@ -238,9 +262,6 @@ function addon:OnInitialize()
 	self.DataBase = LibStub('AceDB-3.0'):New('BaganatorOpenableDB', {profile = profile}, true)
 	self.DB = self.DataBase.profile ---@type Profile
 	Log('Database initialized with ShowOpenableIndicator: ' .. tostring(self.DB.ShowOpenableIndicator))
-
-	-- Simple registration - just call it directly like AutoSell does
-	self:RegisterWithBaganator()
 end
 
 function addon:RegisterWithBaganator()
