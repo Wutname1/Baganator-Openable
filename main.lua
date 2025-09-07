@@ -170,17 +170,16 @@ end
 local function OnCornerWidgetInit(itemButton)
 	Log('OnCornerWidgetInit called for itemButton')
 	local frame = CreateFrame('Frame', nil, itemButton)
-	-- Make the frame cover most of the item button for highlighting effect
-	frame:SetSize(32, 32) -- Item buttons are typically 37x37, so this covers most of it
+	-- Simple small icon size
+	frame:SetSize(12, 12)
 
 	local texture = frame:CreateTexture(nil, 'OVERLAY')
 	texture:SetAllPoints(frame)
 	texture:SetAtlas('GM-icon-visible-hover')
 	-- Neon green color
-	texture:SetVertexColor(0, 1, 0, 0.8) -- Bright green with slight transparency
+	texture:SetVertexColor(0, 1, 0, 1) -- Bright green, full opacity
 
 	frame.texture = texture
-	frame.padding = -12 -- Negative padding to expand beyond normal corner bounds
 	Log('Corner widget frame created and configured')
 	return frame
 end
