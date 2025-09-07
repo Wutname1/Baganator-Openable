@@ -209,75 +209,28 @@ local function OnCornerWidgetUpdate(cornerFrame, itemDetails)
 	return false
 end
 
--- Item Set Functions for treating openable items as a "gear set"
-local function GetItemSetInfo(itemLink)
-	-- Create itemDetails for our existing CheckItem function
-	local itemDetails = {
-		itemLink = itemLink,
-		bagID = nil,
-		slotID = nil
-	}
-	
-	local isOpenable = CheckItem(itemDetails)
-	if isOpenable then
-		return {
-			{
-				name = "Openable Items",
-				iconTexture = "Interface\\Icons\\INV_Misc_Bag_08" -- Bag icon for openable set
-			}
-		}
-	end
-	return nil
-end
-
-local function GetAllSetNames()
-	return {"Openable Items"}
-end
-
 -- Register corner widget at top level like Baganator's own widgets
 print('BaganatorOpenable: Attempting direct registration at top level')
-if Baganator and Baganator.API then
-	-- Register corner widget
-	if Baganator.API.RegisterCornerWidget then
-		print('BaganatorOpenable: Baganator API found, registering corner widget')
-		local success, err =
-			pcall(
-			function()
-				Baganator.API.RegisterCornerWidget(
-					'Openable Items', -- label
-					'baganator_openable_items', -- id
-					OnCornerWidgetUpdate, -- onUpdate
-					OnCornerWidgetInit, -- onInit
-					{corner = 'top_right', priority = 1}, -- defaultPosition
-					false -- isFast
-				)
-			end
-		)
-
-		if success then
-			print('BaganatorOpenable: Corner widget registration SUCCESS!')
-		else
-			print('BaganatorOpenable: Corner widget registration ERROR: ' .. tostring(err))
-		end
-	end
-	
-	-- Register item set source for grouping
-	if Baganator.API.RegisterItemSetSource then
-		print('BaganatorOpenable: Registering as item set source for grouping')
-		local success, err = pcall(function()
-			Baganator.API.RegisterItemSetSource(
-				'Openable Items Set', -- label
-				'baganator_openable_set', -- id
-				GetItemSetInfo, -- getItemSetInfo
-				GetAllSetNames -- getAllSetNames
+if Baganator and Baganator.API and Baganator.API.RegisterCornerWidget then
+	print('BaganatorOpenable: Baganator API found, registering corner widget')
+	local success, err =
+		pcall(
+		function()
+			Baganator.API.RegisterCornerWidget(
+				'Openable Items', -- label
+				'baganator_openable_items', -- id
+				OnCornerWidgetUpdate, -- onUpdate
+				OnCornerWidgetInit, -- onInit
+				{corner = 'top_right', priority = 1}, -- defaultPosition
+				false -- isFast
 			)
-		end)
-		
-		if success then
-			print('BaganatorOpenable: Item set source registration SUCCESS!')
-		else
-			print('BaganatorOpenable: Item set source registration ERROR: ' .. tostring(err))
 		end
+	)
+
+	if success then
+		print('BaganatorOpenable: Direct registration SUCCESS!')
+	else
+		print('BaganatorOpenable: Direct registration ERROR: ' .. tostring(err))
 	end
 else
 	print('BaganatorOpenable: Baganator API not available at top level')
