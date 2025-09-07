@@ -13,6 +13,10 @@ local ANIMATION_CYCLE_TIME = 2.5 -- Time to fade from one color to another
 local TIME_BETWEEN_CYCLES = 1.0 -- Time to pause at each color
 local ANIMATION_UPDATE_INTERVAL = 0.1 -- How often to update the animation (10 FPS)
 
+-- Simple global animation system - just replace individual timers with one master timer
+local globalAnimationTimer = nil
+local animatingFrames = {}
+
 ---@class Profile
 local profile = {
 	CategoryColor = {r = 0.17, g = 0.93, b = 0.93, a = 1},
@@ -187,15 +191,42 @@ local function CheckItem(itemDetails)
 	return false
 end
 
+-- Global animation update function - runs all frame animations
+local function GlobalAnimationUpdate()
+	for frame in pairs(animatingFrames) do
+		if frame.updateFunction then
+			frame.updateFunction()
+		end
+	end
+end
+
+-- Start global timer if not running
+local function StartGlobalTimer()
+	if not globalAnimationTimer then
+		globalAnimationTimer = addon:ScheduleRepeatingTimer(GlobalAnimationUpdate, ANIMATION_UPDATE_INTERVAL)
+		local count = 0
+		for _ in pairs(animatingFrames) do count = count + 1 end
+		Log('Started global animation timer for ' .. count .. ' frames')
+	end
+end
+
+-- Stop global timer if no frames
+local function StopGlobalTimer()
+	if globalAnimationTimer then
+		addon:CancelTimer(globalAnimationTimer)
+		globalAnimationTimer = nil
+		Log('Stopped global animation timer')
+	end
+end
+
 -- Animation function for corner widget with pause states
 local function AnimateTextures(frame)
-	local elapsedTime = 0
-	local animationTimer
 	-- Store state on frame so it persists across timer restarts
 	if not frame.animationState then
 		frame.animationState = 1 -- 1 = blue visible, 2 = fading to green, 3 = green visible, 4 = fading to blue
 	end
 	local currentState = frame.animationState
+	local elapsedTime = 0
 
 	local function SetTextureState(alpha1, alpha2)
 		if frame.texture1 then
@@ -207,17 +238,12 @@ local function AnimateTextures(frame)
 	end
 
 	local function StartPause(nextState, alpha1, alpha2)
-		-- Cancel current animation timer
-		if frame.animationTimer then
-			addon:CancelTimer(frame.animationTimer)
-		end
-
 		-- Set final alpha values and update persistent state
 		SetTextureState(alpha1, alpha2)
 		frame.animationState = nextState
 
-		-- Start pause timer
-		frame.animationTimer = addon:ScheduleTimer(function()
+		-- Start pause timer (individual timer for pauses)
+		frame.pauseTimer = addon:ScheduleTimer(function()
 			AnimateTextures(frame) -- Restart animation for next phase
 		end, TIME_BETWEEN_CYCLES)
 
@@ -235,6 +261,12 @@ local function AnimateTextures(frame)
 			Log('Starting fade: blue to green')
 		elseif currentState == 2 then -- Fading blue to green
 			if progress >= 1 then
+				-- Remove from global animation during pause
+				animatingFrames[frame] = nil
+				local count = 0
+				for _ in pairs(animatingFrames) do count = count + 1 end
+				if count == 0 then StopGlobalTimer() end
+				
 				StartPause(3, 0, 1) -- Pause at green
 				return
 			end
@@ -246,6 +278,12 @@ local function AnimateTextures(frame)
 			Log('Starting fade: green to blue')
 		elseif currentState == 4 then -- Fading green to blue
 			if progress >= 1 then
+				-- Remove from global animation during pause
+				animatingFrames[frame] = nil
+				local count = 0
+				for _ in pairs(animatingFrames) do count = count + 1 end
+				if count == 0 then StopGlobalTimer() end
+				
 				StartPause(1, 1, 0) -- Pause at blue
 				return
 			end
@@ -253,9 +291,10 @@ local function AnimateTextures(frame)
 		end
 	end
 
-	-- Start the animation timer
-	animationTimer = addon:ScheduleRepeatingTimer(UpdateAnimation, ANIMATION_UPDATE_INTERVAL)
-	frame.animationTimer = animationTimer
+	-- Add this frame to global animation
+	frame.updateFunction = UpdateAnimation
+	animatingFrames[frame] = true
+	StartGlobalTimer()
 
 	-- Set initial state based on current animation state
 	if currentState == 1 or currentState == 2 then
@@ -303,12 +342,25 @@ end
 
 -- Cleanup function to stop animation timers
 local function CleanupAnimation(cornerFrame)
-	if cornerFrame.animationTimer then
-		addon:CancelTimer(cornerFrame.animationTimer)
-		cornerFrame.animationTimer = nil
-		cornerFrame.animationState = nil -- Reset state
-		Log('Canceled animation timer and reset state')
+	-- Remove from global animation
+	if animatingFrames[cornerFrame] then
+		animatingFrames[cornerFrame] = nil
+		local count = 0
+		for _ in pairs(animatingFrames) do count = count + 1 end
+		if count == 0 then StopGlobalTimer() end
+		Log('Removed frame from global animation, ' .. count .. ' frames remaining')
 	end
+	
+	-- Cancel pause timer if running
+	if cornerFrame.pauseTimer then
+		addon:CancelTimer(cornerFrame.pauseTimer)
+		cornerFrame.pauseTimer = nil
+		Log('Canceled pause timer')
+	end
+	
+	-- Reset state
+	cornerFrame.animationState = nil
+	cornerFrame.updateFunction = nil
 end
 
 local function OnCornerWidgetUpdate(cornerFrame, itemDetails)
@@ -329,7 +381,7 @@ local function OnCornerWidgetUpdate(cornerFrame, itemDetails)
 	if isOpenable then
 		Log('Item is openable, showing animated textures')
 		-- Start animation if not already running
-		if not cornerFrame.animationTimer then
+		if not animatingFrames[cornerFrame] then
 			local success, errorMsg = pcall(AnimateTextures, cornerFrame)
 			if not success then
 				Log('ERROR starting animation: ' .. tostring(errorMsg))
@@ -406,7 +458,10 @@ function addon:OnInitialize()
 end
 
 function addon:OnDisable()
-	Log('BaganatorOpenable addon disabling - canceling all timers')
+	Log('BaganatorOpenable addon disabling - stopping global animation and canceling all timers')
+	-- Stop global animation
+	StopGlobalTimer()
+	animatingFrames = {}
 	-- Cancel any running timers when addon is disabled
 	self:CancelAllTimers()
 end
