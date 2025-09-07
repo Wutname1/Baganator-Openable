@@ -121,14 +121,21 @@ local function CheckItem(itemDetails)
 		Tooltip:SetHyperlink(itemLink)
 	end
 
-	for i = 1, Tooltip:NumLines() do
-		local line = _G['BaganatorOpenableTextLeft' .. i]
-		if line then
-			local LineText = line:GetText()
+	-- Give tooltip time to fully populate
+	if string.find(itemLink, "Cache") then
+		Log('Cache item detected, waiting for tooltip to populate...')
+	end
+
+	local numLines = Tooltip:NumLines()
+	for i = 1, numLines do
+		local leftLine = _G['BaganatorOpenableTextLeft' .. i]
+		local rightLine = _G['BaganatorOpenableTextRight' .. i]
+		if leftLine then
+			local LineText = leftLine:GetText()
 			if LineText then
-				-- Debug logging for cache items
+				-- Debug logging for cache items - show ALL lines
 				if string.find(itemLink, "Cache") then
-					Log('Cache item tooltip line ' .. i .. ': "' .. LineText .. '"')
+					Log('Cache item tooltip line ' .. i .. ' (LEFT): "' .. LineText .. '"')
 				end
 				
 				-- Search for basic openable items
@@ -186,6 +193,34 @@ local function CheckItem(itemDetails)
 				end
 			end
 		end
+		
+		if rightLine then
+			local RightLineText = rightLine:GetText()
+			if RightLineText then
+				-- Debug logging for cache items - show RIGHT lines too
+				if string.find(itemLink, "Cache") then
+					Log('Cache item tooltip line ' .. i .. ' (RIGHT): "' .. RightLineText .. '"')
+				end
+				
+				-- Search right side text too
+				for _, v in pairs(SearchItems) do
+					if string.find(RightLineText, v) then
+						return true
+					end
+				end
+				
+				-- Check right side for containers
+				if addon.DB.FilterContainers and (string.find(RightLineText, 'Right [Cc]lick to open') or string.find(RightLineText, '<Right [Cc]lick to [Oo]pen>')) then
+					Log('Found container with right click text: ' .. RightLineText)
+					return true
+				end
+			end
+		end
+	end
+	
+	-- Final debug for cache items
+	if string.find(itemLink, "Cache") then
+		Log('Cache item tooltip scan complete: ' .. numLines .. ' total lines, no "Right click to open" found')
 	end
 
 	return false
