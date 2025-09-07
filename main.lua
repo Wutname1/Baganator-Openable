@@ -184,23 +184,6 @@ local function OnCornerWidgetInit(itemButton)
 	return frame
 end
 
--- Add item to our custom Openable category
-local function AddItemToOpenableCategory(itemLink, itemID)
-	if not Baganator or not Baganator.Config then
-		return
-	end
-	
-	-- Get current category modifications (where individual items are assigned to categories)
-	local categoryMods = Baganator.Config.Get("category_modifications") or {}
-	
-	-- Add this item to our openable category
-	categoryMods[itemID] = "openable_items_category"
-	
-	-- Save the changes
-	Baganator.Config.Set("category_modifications", categoryMods)
-	Log('Added item ' .. (itemLink or 'unknown') .. ' to Openable category')
-end
-
 local function OnCornerWidgetUpdate(cornerFrame, itemDetails)
 	if not addon.DB.ShowOpenableIndicator then
 		Log('ShowOpenableIndicator is disabled, hiding widget')
@@ -216,12 +199,6 @@ local function OnCornerWidgetUpdate(cornerFrame, itemDetails)
 	local isOpenable = CheckItem(itemDetails)
 	if isOpenable then
 		Log('Item is openable, showing green highlight')
-		
-		-- Add this item to our custom category
-		if itemDetails.itemID then
-			AddItemToOpenableCategory(itemDetails.itemLink, itemDetails.itemID)
-		end
-		
 		-- Keep the neon green color consistent
 		cornerFrame.texture:SetVertexColor(0, 1, 0, 0.8) -- Bright green with transparency
 		return true
@@ -259,43 +236,6 @@ else
 	print('BaganatorOpenable: Baganator API not available at top level')
 end
 
--- Create custom Openable category in Baganator's database
-local function CreateOpenableCategory()
-	print('BaganatorOpenable: Attempting to create custom Openable category')
-	
-	-- Check if Baganator's config is available
-	if not Baganator or not Baganator.Config or not Baganator.Config.Get or not Baganator.Config.Set then
-		print('BaganatorOpenable: Baganator config not available')
-		return false
-	end
-	
-	-- Get the custom categories from Baganator's config
-	local customCategories = Baganator.Config.Get("custom_categories")
-	if not customCategories then
-		print('BaganatorOpenable: Could not access custom_categories config')
-		return false
-	end
-	
-	-- Check if our category already exists
-	local categoryId = "openable_items_category"
-	if customCategories[categoryId] then
-		print('BaganatorOpenable: Openable category already exists')
-		return true
-	end
-	
-	-- Create our custom category
-	customCategories[categoryId] = {
-		name = "Openable Items",
-		search = "#openable" -- We'll use this as a placeholder search term
-	}
-	
-	-- Save the updated categories
-	Baganator.Config.Set("custom_categories", customCategories)
-	print('BaganatorOpenable: Created Openable category successfully!')
-	
-	return true
-end
-
 function addon:OnInitialize()
 	-- Debug SUI logging setup
 	if SUI then
@@ -324,9 +264,6 @@ function addon:OnInitialize()
 	self.DataBase = LibStub('AceDB-3.0'):New('BaganatorOpenableDB', {profile = profile}, true)
 	self.DB = self.DataBase.profile ---@type Profile
 	Log('Database initialized with ShowOpenableIndicator: ' .. tostring(self.DB.ShowOpenableIndicator))
-	
-	-- Create custom category in Baganator
-	CreateOpenableCategory()
 end
 
 function addon:RegisterWithBaganator()
