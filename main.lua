@@ -228,10 +228,17 @@ local function OnCornerWidgetInit(itemButton)
 	texture2:SetAtlas('bags-glow-heirloom')
 	texture2:SetAlpha(0) -- Start invisible
 
-	-- Store both textures
+	-- Third static texture for debugging
+	local texture3 = frame:CreateTexture(nil, 'OVERLAY')
+	texture3:SetAllPoints(frame)
+	texture3:SetAtlas('ShipMissionIcon-Treasure-Map')
+	texture3:SetAlpha(1) -- Always visible
+
+	-- Store all textures
 	frame.texture1 = texture1
 	frame.texture2 = texture2
-	frame.texture = texture1 -- For compatibility
+	frame.texture3 = texture3
+	frame.texture = texture3 -- For compatibility, use static texture
 	
 	Log('Corner widget frame created with dual textures')
 	return frame
