@@ -175,7 +175,11 @@ end
 local function AnimateTextures(frame)
 	local elapsedTime = 0
 	local animationTimer
-	local currentState = 1 -- 1 = blue visible, 2 = fading to green, 3 = green visible, 4 = fading to blue
+	-- Store state on frame so it persists across timer restarts
+	if not frame.animationState then
+		frame.animationState = 1 -- 1 = blue visible, 2 = fading to green, 3 = green visible, 4 = fading to blue
+	end
+	local currentState = frame.animationState
 	
 	local function SetTextureState(alpha1, alpha2)
 		if frame.texture1 then
@@ -192,9 +196,9 @@ local function AnimateTextures(frame)
 			addon:CancelTimer(frame.animationTimer)
 		end
 		
-		-- Set final alpha values
+		-- Set final alpha values and update persistent state
 		SetTextureState(alpha1, alpha2)
-		currentState = nextState
+		frame.animationState = nextState
 		
 		-- Start pause timer
 		frame.animationTimer = addon:ScheduleTimer(function()
@@ -210,7 +214,9 @@ local function AnimateTextures(frame)
 		
 		if currentState == 1 then -- Blue visible, start fading to green
 			currentState = 2
+			frame.animationState = 2
 			elapsedTime = 0
+			Log('Starting fade: blue to green')
 		elseif currentState == 2 then -- Fading blue to green
 			if progress >= 1 then
 				StartPause(3, 0, 1) -- Pause at green
@@ -219,7 +225,9 @@ local function AnimateTextures(frame)
 			SetTextureState(1 - progress, progress)
 		elseif currentState == 3 then -- Green visible, start fading to blue
 			currentState = 4
+			frame.animationState = 4
 			elapsedTime = 0
+			Log('Starting fade: green to blue')
 		elseif currentState == 4 then -- Fading green to blue
 			if progress >= 1 then
 				StartPause(1, 1, 0) -- Pause at blue
@@ -277,7 +285,8 @@ local function CleanupAnimation(cornerFrame)
 	if cornerFrame.animationTimer then
 		addon:CancelTimer(cornerFrame.animationTimer)
 		cornerFrame.animationTimer = nil
-		Log('Canceled animation timer')
+		cornerFrame.animationState = nil -- Reset state
+		Log('Canceled animation timer and reset state')
 	end
 end
 
