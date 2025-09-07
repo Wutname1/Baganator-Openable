@@ -1,16 +1,11 @@
 local addonName, root = ... --[[@type string, table]]
 
--- Immediate startup logging
-print('BaganatorOpenable: Addon file loaded, addonName=' .. tostring(addonName))
-
 ---@class BaganatorOpenable: AceAddon, AceTimer-3.0
 local addon = LibStub('AceAddon-3.0'):NewAddon(addonName, 'AceEvent-3.0', 'AceTimer-3.0')
 
-print('BaganatorOpenable: AceAddon created successfully')
-
 -- Animation Constants
-local ANIMATION_CYCLE_TIME = 2.5 -- Time to fade from one color to another
-local TIME_BETWEEN_CYCLES = 1.0 -- Time to pause at each color
+local ANIMATION_CYCLE_TIME = .5 -- Time to fade from one color to another
+local TIME_BETWEEN_CYCLES = .10 -- Time to pause at each color
 local ANIMATION_UPDATE_INTERVAL = 0.1 -- How often to update the animation (10 FPS)
 
 -- Simple global animation system - just replace individual timers with one master timer
@@ -19,7 +14,6 @@ local animatingFrames = {}
 
 ---@class Profile
 local profile = {
-	CategoryColor = {r = 0.17, g = 0.93, b = 0.93, a = 1},
 	FilterGenericUse = false,
 	FilterToys = true,
 	FilterAppearance = true,
@@ -70,7 +64,7 @@ local function Log(msg, level)
 	if SUI and SUI.Log then
 		SUI.Log(tostring(msg), 'BaganatorOpenable', level or 'info')
 	else
-		print('BaganatorOpenable: ' .. tostring(msg))
+		-- print('BaganatorOpenable: ' .. tostring(msg))
 	end
 end
 
@@ -476,13 +470,9 @@ if Baganator and Baganator.API and Baganator.API.RegisterCornerWidget then
 		end
 	)
 
-	if success then
-		print('BaganatorOpenable: Direct registration SUCCESS!')
-	else
+	if not success then
 		print('BaganatorOpenable: Direct registration ERROR: ' .. tostring(err))
 	end
-else
-	print('BaganatorOpenable: Baganator API not available at top level')
 end
 
 function addon:OnInitialize()
