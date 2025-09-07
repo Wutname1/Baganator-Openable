@@ -213,17 +213,20 @@ end
 print('BaganatorOpenable: Attempting direct registration at top level')
 if Baganator and Baganator.API and Baganator.API.RegisterCornerWidget then
 	print('BaganatorOpenable: Baganator API found, registering corner widget')
-	local success, err = pcall(function()
-		Baganator.API.RegisterCornerWidget(
-			'Openable Items', -- label
-			'baganator_openable_items', -- id
-			OnCornerWidgetUpdate, -- onUpdate
-			OnCornerWidgetInit, -- onInit
-			{corner = 'bottom_right', priority = 1}, -- defaultPosition
-			false -- isFast
-		)
-	end)
-	
+	local success, err =
+		pcall(
+		function()
+			Baganator.API.RegisterCornerWidget(
+				'Openable Items', -- label
+				'baganator_openable_items', -- id
+				OnCornerWidgetUpdate, -- onUpdate
+				OnCornerWidgetInit, -- onInit
+				{corner = 'top_right', priority = 1}, -- defaultPosition
+				false -- isFast
+			)
+		end
+	)
+
 	if success then
 		print('BaganatorOpenable: Direct registration SUCCESS!')
 	else
@@ -293,16 +296,19 @@ function addon:RegisterWithBaganator()
 	Log('Registering corner widget with Baganator API...')
 	print('BaganatorOpenable: Registering corner widget with Baganator API...')
 
-	local success, err = pcall(function()
-		Baganator.API.RegisterCornerWidget(
-			'Openable Items', -- label
-			'baganator_openable_items', -- id
-			OnCornerWidgetUpdate, -- onUpdate
-			OnCornerWidgetInit, -- onInit
-			{corner = 'bottom_right', priority = 1}, -- defaultPosition
-			false -- isFast
-		)
-	end)
+	local success, err =
+		pcall(
+		function()
+			Baganator.API.RegisterCornerWidget(
+				'Openable Items', -- label
+				'baganator_openable_items', -- id
+				OnCornerWidgetUpdate, -- onUpdate
+				OnCornerWidgetInit, -- onInit
+				{corner = 'bottom_right', priority = 1}, -- defaultPosition
+				false -- isFast
+			)
+		end
+	)
 
 	if not success then
 		Log('ERROR during registration: ' .. tostring(err))
