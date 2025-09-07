@@ -81,6 +81,7 @@ local Tooltip = CreateFrame('GameTooltip', 'BaganatorOpenable', nil, 'GameToolti
 local SearchItems = {
 	'Open the container',
 	'Use: Open',
+	'Right Click to Open',
 	ITEM_OPENABLE
 }
 
@@ -180,7 +181,7 @@ local function AnimateTextures(frame)
 		frame.animationState = 1 -- 1 = blue visible, 2 = fading to green, 3 = green visible, 4 = fading to blue
 	end
 	local currentState = frame.animationState
-	
+
 	local function SetTextureState(alpha1, alpha2)
 		if frame.texture1 then
 			frame.texture1:SetAlpha(alpha1)
@@ -189,29 +190,29 @@ local function AnimateTextures(frame)
 			frame.texture2:SetAlpha(alpha2)
 		end
 	end
-	
+
 	local function StartPause(nextState, alpha1, alpha2)
 		-- Cancel current animation timer
 		if frame.animationTimer then
 			addon:CancelTimer(frame.animationTimer)
 		end
-		
+
 		-- Set final alpha values and update persistent state
 		SetTextureState(alpha1, alpha2)
 		frame.animationState = nextState
-		
+
 		-- Start pause timer
 		frame.animationTimer = addon:ScheduleTimer(function()
 			AnimateTextures(frame) -- Restart animation for next phase
 		end, TIME_BETWEEN_CYCLES)
-		
+
 		Log('Started pause timer for ' .. TIME_BETWEEN_CYCLES .. ' seconds, next state: ' .. nextState)
 	end
 
 	local function UpdateAnimation()
 		elapsedTime = elapsedTime + ANIMATION_UPDATE_INTERVAL
 		local progress = elapsedTime / ANIMATION_CYCLE_TIME
-		
+
 		if currentState == 1 then -- Blue visible, start fading to green
 			currentState = 2
 			frame.animationState = 2
@@ -240,10 +241,15 @@ local function AnimateTextures(frame)
 	-- Start the animation timer
 	animationTimer = addon:ScheduleRepeatingTimer(UpdateAnimation, ANIMATION_UPDATE_INTERVAL)
 	frame.animationTimer = animationTimer
-	
-	-- Start with blue visible
-	SetTextureState(1, 0)
-	Log('Started animation cycle')
+
+	-- Set initial state based on current animation state
+	if currentState == 1 or currentState == 2 then
+		SetTextureState(1, 0) -- Start with blue visible
+		Log('Started animation cycle at blue')
+	elseif currentState == 3 or currentState == 4 then
+		SetTextureState(0, 1) -- Start with green visible
+		Log('Started animation cycle at green')
+	end
 end
 
 -- Baganator Corner Widget Functions
@@ -379,6 +385,9 @@ function addon:OnInitialize()
 	self.DataBase = LibStub('AceDB-3.0'):New('BaganatorOpenableDB', {profile = profile}, true)
 	self.DB = self.DataBase.profile ---@type Profile
 	Log('Database initialized with ShowOpenableIndicator: ' .. tostring(self.DB.ShowOpenableIndicator))
+	
+	-- Setup options panel
+	self:SetupOptions()
 end
 
 function addon:OnDisable()
@@ -458,4 +467,116 @@ function addon:ADDON_LOADED(event, loadedAddon)
 		self:RegisterWithBaganator()
 		self:UnregisterEvent('ADDON_LOADED')
 	end
+end
+
+-- AceOptions Configuration
+local function GetOptions()
+	return {
+		name = "Baganator Openable",
+		type = "group",
+		args = {
+			header = {
+				type = "description",
+				name = "Baganator Openable Settings\n",
+				fontSize = "large",
+				order = 1,
+			},
+			showIndicator = {
+				type = "toggle",
+				name = "Show Openable Indicator",
+				desc = "Display animated corner widget on openable items",
+				get = function() return addon.DB.ShowOpenableIndicator end,
+				set = function(_, value) addon.DB.ShowOpenableIndicator = value end,
+				order = 10,
+			},
+			filterHeader = {
+				type = "header",
+				name = "Item Type Filters",
+				order = 20,
+			},
+			filterDesc = {
+				type = "description",
+				name = "Choose which types of openable items to highlight:",
+				order = 21,
+			},
+			filterToys = {
+				type = "toggle",
+				name = "Toys",
+				desc = "Highlight toy items that can be learned",
+				get = function() return addon.DB.FilterToys end,
+				set = function(_, value) addon.DB.FilterToys = value end,
+				order = 30,
+			},
+			filterAppearance = {
+				type = "toggle",
+				name = "Appearances",
+				desc = "Highlight items that teach appearances/transmog",
+				get = function() return addon.DB.FilterAppearance end,
+				set = function(_, value) addon.DB.FilterAppearance = value end,
+				order = 31,
+			},
+			filterMounts = {
+				type = "toggle",
+				name = "Mounts",
+				desc = "Highlight mount teaching items",
+				get = function() return addon.DB.FilterMounts end,
+				set = function(_, value) addon.DB.FilterMounts = value end,
+				order = 32,
+			},
+			filterCompanion = {
+				type = "toggle",
+				name = "Companions/Pets",
+				desc = "Highlight companion and pet items",
+				get = function() return addon.DB.FilterCompanion end,
+				set = function(_, value) addon.DB.FilterCompanion = value end,
+				order = 33,
+			},
+			filterRepGain = {
+				type = "toggle",
+				name = "Reputation Items",
+				desc = "Highlight items that give reputation",
+				get = function() return addon.DB.FilterRepGain end,
+				set = function(_, value) addon.DB.FilterRepGain = value end,
+				order = 34,
+			},
+			filterCurios = {
+				type = "toggle",
+				name = "Curios",
+				desc = "Highlight curio items",
+				get = function() return addon.DB.FilterCurios end,
+				set = function(_, value) addon.DB.FilterCurios = value end,
+				order = 35,
+			},
+			filterKnowledge = {
+				type = "toggle",
+				name = "Knowledge Items",
+				desc = "Highlight knowledge/profession learning items",
+				get = function() return addon.DB.FilterKnowledge end,
+				set = function(_, value) addon.DB.FilterKnowledge = value end,
+				order = 36,
+			},
+			filterCreatable = {
+				type = "toggle",
+				name = "Creatable Items",
+				desc = "Highlight items that create class-specific gear",
+				get = function() return addon.DB.CreatableItem end,
+				set = function(_, value) addon.DB.CreatableItem = value end,
+				order = 37,
+			},
+			filterGeneric = {
+				type = "toggle",
+				name = "Generic Use Items",
+				desc = "Highlight generic 'Use:' items (may be noisy)",
+				get = function() return addon.DB.FilterGenericUse end,
+				set = function(_, value) addon.DB.FilterGenericUse = value end,
+				order = 38,
+			},
+		}
+	}
+end
+
+function addon:SetupOptions()
+	LibStub("AceConfig-3.0"):RegisterOptionsTable("BaganatorOpenable", GetOptions)
+	LibStub("AceConfigDialog-3.0"):AddToBlizOptions("BaganatorOpenable", "Baganator Openable")
+	Log('Options panel registered with Blizzard Interface')
 end
