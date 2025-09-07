@@ -170,8 +170,8 @@ end
 local function OnCornerWidgetInit(itemButton)
 	Log('OnCornerWidgetInit called for itemButton')
 	local frame = CreateFrame('Frame', nil, itemButton)
-	-- Simple small icon size
-	frame:SetSize(12, 12)
+	-- Larger icon size (250% increase from 12x12)
+	frame:SetSize(30, 30)
 
 	local texture = frame:CreateTexture(nil, 'OVERLAY')
 	texture:SetAllPoints(frame)
