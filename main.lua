@@ -24,6 +24,7 @@ local profile = {
 	FilterCompanion = true,
 	FilterCurios = true,
 	FilterKnowledge = true,
+	FilterContainers = true,
 	CreatableItem = true,
 	ShowOpenableIndicator = true
 }
@@ -82,6 +83,9 @@ local SearchItems = {
 	'Open the container',
 	'Use: Open',
 	'Right Click to Open',
+	'Right click to open',
+	'<Right Click to Open>',
+	'<Right click to open>',
 	ITEM_OPENABLE
 }
 
@@ -118,11 +122,22 @@ local function CheckItem(itemDetails)
 		if line then
 			local LineText = line:GetText()
 			if LineText then
+				-- Debug logging for cache items
+				if string.find(itemLink, "Cache") then
+					Log('Cache item tooltip line ' .. i .. ': "' .. LineText .. '"')
+				end
+				
 				-- Search for basic openable items
 				for _, v in pairs(SearchItems) do
 					if string.find(LineText, v) then
 						return true
 					end
+				end
+
+				-- Check for containers (caches, chests, etc.)
+				if addon.DB.FilterContainers and (string.find(LineText, 'Right [Cc]lick to open') or string.find(LineText, '<Right [Cc]lick to [Oo]pen>')) then
+					Log('Found container with right click text: ' .. LineText)
+					return true
 				end
 
 				if addon.DB.FilterAppearance and (string.find(LineText, ITEM_COSMETIC_LEARN) or string.find(LineText, GetLocaleString('Use: Collect the appearance'))) then
@@ -162,7 +177,7 @@ local function CheckItem(itemDetails)
 					return true
 				end
 
-				if addon.DB.FilterGenericUse and (string.find(LineText, ITEM_SPELL_TRIGGER_ONUSE) or string.find(LineText, GetLocaleString('Right Click to Open'))) then
+				if addon.DB.FilterGenericUse and string.find(LineText, ITEM_SPELL_TRIGGER_ONUSE) then
 					return true
 				end
 			end
@@ -547,13 +562,21 @@ local function GetOptions()
 				set = function(_, value) addon.DB.FilterCurios = value end,
 				order = 35,
 			},
+			filterContainers = {
+				type = "toggle",
+				name = "Containers",
+				desc = "Highlight containers with 'Right click to open' text (caches, chests, etc.)",
+				get = function() return addon.DB.FilterContainers end,
+				set = function(_, value) addon.DB.FilterContainers = value end,
+				order = 36,
+			},
 			filterKnowledge = {
 				type = "toggle",
 				name = "Knowledge Items",
 				desc = "Highlight knowledge/profession learning items",
 				get = function() return addon.DB.FilterKnowledge end,
 				set = function(_, value) addon.DB.FilterKnowledge = value end,
-				order = 36,
+				order = 37,
 			},
 			filterCreatable = {
 				type = "toggle",
@@ -561,7 +584,7 @@ local function GetOptions()
 				desc = "Highlight items that create class-specific gear",
 				get = function() return addon.DB.CreatableItem end,
 				set = function(_, value) addon.DB.CreatableItem = value end,
-				order = 37,
+				order = 38,
 			},
 			filterGeneric = {
 				type = "toggle",
@@ -569,7 +592,7 @@ local function GetOptions()
 				desc = "Highlight generic 'Use:' items (may be noisy)",
 				get = function() return addon.DB.FilterGenericUse end,
 				set = function(_, value) addon.DB.FilterGenericUse = value end,
-				order = 38,
+				order = 39,
 			},
 		}
 	}
