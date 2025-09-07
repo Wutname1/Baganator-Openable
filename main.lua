@@ -8,6 +8,11 @@ local addon = LibStub('AceAddon-3.0'):NewAddon(addonName, 'AceEvent-3.0')
 
 print('BaganatorOpenable: AceAddon created successfully')
 
+-- Animation Constants
+local ANIMATION_CYCLE_TIME = 4.0 -- Total animation cycle time in seconds
+local ANIMATION_FADE_TIME = 2.0  -- Time to fade from one texture to the other
+local ANIMATION_UPDATE_INTERVAL = 0.05 -- How often to update the animation (20 FPS)
+
 ---@class Profile
 local profile = {
 	CategoryColor = {r = 0.17, g = 0.93, b = 0.93, a = 1},
@@ -170,14 +175,25 @@ end
 local function OnCornerWidgetInit(itemButton)
 	Log('OnCornerWidgetInit called for itemButton')
 	local frame = CreateFrame('Frame', nil, itemButton)
-	-- Larger icon size (250% increase from 12x12)
-	frame:SetSize(30, 30)
+	frame:SetSize(35, 35)
 
 	local texture = frame:CreateTexture(nil, 'OVERLAY')
 	texture:SetAllPoints(frame)
-	texture:SetAtlas('GM-icon-visible-hover')
+	-- texture:SetAtlas('plunderstorm-glues-queue-pending-spinner-back')
+	-- texture:SetAtlas('UI-QuestPoiCampaign-QuestBang')
+	-- texture:SetAtlas('UI-Achievement-Bling')
+	-- texture:SetAtlas('ClassHall-TreasureIcon-Desaturated')
+	texture:SetAtlas('bags-glow-blue')
+	texture:SetAtlas('bags-glow-heirloom')
+	-- texture:SetAtlas('bags-glow-green')
+	-- texture:SetAtlas('GarrMission_CurrencyIcon-Material')
+	-- texture:SetAtlas('ShipMissionIcon-Treasure-Map')
+	-- texture:SetAtlas('VignetteLoot')
+	-- texture:SetAtlas('')
+	-- texture:SetAtlas('GM-icon-visible-hover')
+
 	-- Neon green color
-	texture:SetVertexColor(0, 1, 0, 1) -- Bright green, full opacity
+	-- texture:SetVertexColor(0, 1, 0, 1) -- Bright green, full opacity
 
 	frame.texture = texture
 	Log('Corner widget frame created and configured')
