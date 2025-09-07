@@ -3,8 +3,8 @@ local addonName, root = ... --[[@type string, table]]
 -- Immediate startup logging
 print('BaganatorOpenable: Addon file loaded, addonName=' .. tostring(addonName))
 
----@class BaganatorOpenable: AceAddon
-local addon = LibStub('AceAddon-3.0'):NewAddon(addonName, 'AceEvent-3.0')
+---@class BaganatorOpenable: AceAddon, AceTimer-3.0
+local addon = LibStub('AceAddon-3.0'):NewAddon(addonName, 'AceEvent-3.0', 'AceTimer-3.0')
 
 print('BaganatorOpenable: AceAddon created successfully')
 
@@ -171,32 +171,69 @@ local function CheckItem(itemDetails)
 	return false
 end
 
+-- Animation function for corner widget
+local function AnimateTextures(frame)
+	local elapsedTime = 0
+	local animationTimer
+	
+	local function UpdateAnimation()
+		elapsedTime = elapsedTime + ANIMATION_UPDATE_INTERVAL
+		
+		-- Calculate position in animation cycle (0 to 1)
+		local cyclePosition = (elapsedTime % ANIMATION_CYCLE_TIME) / ANIMATION_CYCLE_TIME
+		
+		-- Calculate alpha values for crossfading
+		local alpha1, alpha2
+		if cyclePosition <= 0.5 then
+			-- First half: fade from texture1 to texture2
+			local fadeProgress = cyclePosition * 2 -- 0 to 1
+			alpha1 = 1 - fadeProgress
+			alpha2 = fadeProgress
+		else
+			-- Second half: fade from texture2 back to texture1
+			local fadeProgress = (cyclePosition - 0.5) * 2 -- 0 to 1
+			alpha1 = fadeProgress
+			alpha2 = 1 - fadeProgress
+		end
+		
+		if frame.texture1 then
+			frame.texture1:SetAlpha(alpha1)
+		end
+		if frame.texture2 then
+			frame.texture2:SetAlpha(alpha2)
+		end
+	end
+	
+	-- Start the animation timer
+	animationTimer = addon:ScheduleRepeatingTimer(UpdateAnimation, ANIMATION_UPDATE_INTERVAL)
+	frame.animationTimer = animationTimer
+	
+	Log('Started animation timer for corner widget')
+end
+
 -- Baganator Corner Widget Functions
 local function OnCornerWidgetInit(itemButton)
 	Log('OnCornerWidgetInit called for itemButton')
 	local frame = CreateFrame('Frame', nil, itemButton)
 	frame:SetSize(35, 35)
 
-	local texture = frame:CreateTexture(nil, 'OVERLAY')
-	texture:SetAllPoints(frame)
-	-- texture:SetAtlas('plunderstorm-glues-queue-pending-spinner-back')
-	-- texture:SetAtlas('UI-QuestPoiCampaign-QuestBang')
-	-- texture:SetAtlas('UI-Achievement-Bling')
-	-- texture:SetAtlas('ClassHall-TreasureIcon-Desaturated')
-	texture:SetAtlas('bags-glow-blue')
-	texture:SetAtlas('bags-glow-heirloom')
-	-- texture:SetAtlas('bags-glow-green')
-	-- texture:SetAtlas('GarrMission_CurrencyIcon-Material')
-	-- texture:SetAtlas('ShipMissionIcon-Treasure-Map')
-	-- texture:SetAtlas('VignetteLoot')
-	-- texture:SetAtlas('')
-	-- texture:SetAtlas('GM-icon-visible-hover')
+	-- Create two textures for crossfading animation
+	local texture1 = frame:CreateTexture(nil, 'OVERLAY')
+	texture1:SetAllPoints(frame)
+	texture1:SetAtlas('bags-glow-blue')
+	texture1:SetAlpha(1) -- Start fully visible
+	
+	local texture2 = frame:CreateTexture(nil, 'OVERLAY')
+	texture2:SetAllPoints(frame)
+	texture2:SetAtlas('bags-glow-heirloom')
+	texture2:SetAlpha(0) -- Start invisible
 
-	-- Neon green color
-	-- texture:SetVertexColor(0, 1, 0, 1) -- Bright green, full opacity
-
-	frame.texture = texture
-	Log('Corner widget frame created and configured')
+	-- Store both textures
+	frame.texture1 = texture1
+	frame.texture2 = texture2
+	frame.texture = texture1 -- For compatibility
+	
+	Log('Corner widget frame created with dual textures')
 	return frame
 end
 
@@ -214,11 +251,18 @@ local function OnCornerWidgetUpdate(cornerFrame, itemDetails)
 	Log('Checking item: ' .. (itemDetails.itemLink or 'unknown'))
 	local isOpenable = CheckItem(itemDetails)
 	if isOpenable then
-		Log('Item is openable, showing green highlight')
-		-- Keep the neon green color consistent
-		cornerFrame.texture:SetVertexColor(0, 1, 0, 0.8) -- Bright green with transparency
+		Log('Item is openable, showing animated textures')
+		-- Start animation if not already running
+		if not cornerFrame.animationTimer then
+			AnimateTextures(cornerFrame)
+		end
 		return true
 	else
+		-- Stop animation timer when hiding
+		if cornerFrame.animationTimer then
+			addon:CancelTimer(cornerFrame.animationTimer)
+			cornerFrame.animationTimer = nil
+		end
 		Log('Item is not openable, hiding widget')
 	end
 
