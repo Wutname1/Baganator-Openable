@@ -9,9 +9,8 @@ local addon = LibStub('AceAddon-3.0'):NewAddon(addonName, 'AceEvent-3.0', 'AceTi
 print('BaganatorOpenable: AceAddon created successfully')
 
 -- Animation Constants
-local ANIMATION_CYCLE_TIME = 4.0 -- Total animation cycle time in seconds
-local ANIMATION_FADE_TIME = 2.0  -- Time to fade from one texture to the other
-local ANIMATION_UPDATE_INTERVAL = 0.05 -- How often to update the animation (20 FPS)
+local ANIMATION_CYCLE_TIME = 5.0 -- Total animation cycle time in seconds
+local ANIMATION_UPDATE_INTERVAL = 0.1 -- How often to update the animation (20 FPS)
 
 ---@class Profile
 local profile = {
@@ -175,13 +174,13 @@ end
 local function AnimateTextures(frame)
 	local elapsedTime = 0
 	local animationTimer
-	
+
 	local function UpdateAnimation()
 		elapsedTime = elapsedTime + ANIMATION_UPDATE_INTERVAL
-		
+
 		-- Calculate position in animation cycle (0 to 1)
 		local cyclePosition = (elapsedTime % ANIMATION_CYCLE_TIME) / ANIMATION_CYCLE_TIME
-		
+
 		-- Calculate alpha values for crossfading
 		local alpha1, alpha2
 		if cyclePosition <= 0.5 then
@@ -195,19 +194,22 @@ local function AnimateTextures(frame)
 			alpha1 = fadeProgress
 			alpha2 = 1 - fadeProgress
 		end
-		
+
 		if frame.texture1 then
 			frame.texture1:SetAlpha(alpha1)
 		end
 		if frame.texture2 then
+			Log('Setting texture2 alpha to ' .. tostring(alpha2))
 			frame.texture2:SetAlpha(alpha2)
+		else
+			Log('Warning: frame.texture2 is nil')
 		end
 	end
-	
+
 	-- Start the animation timer
 	animationTimer = addon:ScheduleRepeatingTimer(UpdateAnimation, ANIMATION_UPDATE_INTERVAL)
 	frame.animationTimer = animationTimer
-	
+
 	Log('Started animation timer for corner widget')
 end
 
@@ -222,16 +224,17 @@ local function OnCornerWidgetInit(itemButton)
 	texture1:SetAllPoints(frame)
 	texture1:SetAtlas('bags-glow-blue')
 	texture1:SetAlpha(1) -- Start fully visible
-	
+
 	local texture2 = frame:CreateTexture(nil, 'OVERLAY')
 	texture2:SetAllPoints(frame)
-	texture2:SetAtlas('bags-glow-heirloom')
+	texture2:SetAtlas('bags-glow-green')
 	texture2:SetAlpha(0) -- Start invisible
 
 	-- Third static texture for debugging
 	local texture3 = frame:CreateTexture(nil, 'OVERLAY')
-	texture3:SetAllPoints(frame)
+	texture3:SetPoint('TOPRIGHT', frame, 'TOPRIGHT', 0, 0)
 	texture3:SetAtlas('ShipMissionIcon-Treasure-Map')
+	texture3:SetSize(20, 20)
 	texture3:SetAlpha(1) -- Always visible
 
 	-- Store all textures
@@ -239,19 +242,30 @@ local function OnCornerWidgetInit(itemButton)
 	frame.texture2 = texture2
 	frame.texture3 = texture3
 	frame.texture = texture3 -- For compatibility, use static texture
-	
+
 	Log('Corner widget frame created with dual textures')
 	return frame
+end
+
+-- Cleanup function to stop animation timers
+local function CleanupAnimation(cornerFrame)
+	if cornerFrame.animationTimer then
+		addon:CancelTimer(cornerFrame.animationTimer)
+		cornerFrame.animationTimer = nil
+		Log('Canceled animation timer')
+	end
 end
 
 local function OnCornerWidgetUpdate(cornerFrame, itemDetails)
 	if not addon.DB.ShowOpenableIndicator then
 		Log('ShowOpenableIndicator is disabled, hiding widget')
+		CleanupAnimation(cornerFrame)
 		return false
 	end
 
 	if not itemDetails or not itemDetails.itemLink then
 		Log('No itemDetails or itemLink provided')
+		CleanupAnimation(cornerFrame)
 		return false
 	end
 
@@ -261,15 +275,15 @@ local function OnCornerWidgetUpdate(cornerFrame, itemDetails)
 		Log('Item is openable, showing animated textures')
 		-- Start animation if not already running
 		if not cornerFrame.animationTimer then
-			AnimateTextures(cornerFrame)
+			local success, errorMsg = pcall(AnimateTextures, cornerFrame)
+			if not success then
+				Log('ERROR starting animation: ' .. tostring(errorMsg))
+			end
 		end
 		return true
 	else
 		-- Stop animation timer when hiding
-		if cornerFrame.animationTimer then
-			addon:CancelTimer(cornerFrame.animationTimer)
-			cornerFrame.animationTimer = nil
-		end
+		CleanupAnimation(cornerFrame)
 		Log('Item is not openable, hiding widget')
 	end
 
@@ -331,6 +345,12 @@ function addon:OnInitialize()
 	self.DataBase = LibStub('AceDB-3.0'):New('BaganatorOpenableDB', {profile = profile}, true)
 	self.DB = self.DataBase.profile ---@type Profile
 	Log('Database initialized with ShowOpenableIndicator: ' .. tostring(self.DB.ShowOpenableIndicator))
+end
+
+function addon:OnDisable()
+	Log('BaganatorOpenable addon disabling - canceling all timers')
+	-- Cancel any running timers when addon is disabled
+	self:CancelAllTimers()
 end
 
 function addon:RegisterWithBaganator()
