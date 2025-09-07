@@ -9,8 +9,9 @@ local addon = LibStub('AceAddon-3.0'):NewAddon(addonName, 'AceEvent-3.0', 'AceTi
 print('BaganatorOpenable: AceAddon created successfully')
 
 -- Animation Constants
-local ANIMATION_CYCLE_TIME = 5.0 -- Total animation cycle time in seconds
-local ANIMATION_UPDATE_INTERVAL = 0.1 -- How often to update the animation (20 FPS)
+local ANIMATION_CYCLE_TIME = 2.5 -- Time to fade from one color to another
+local TIME_BETWEEN_CYCLES = 1.0 -- Time to pause at each color
+local ANIMATION_UPDATE_INTERVAL = 0.1 -- How often to update the animation (10 FPS)
 
 ---@class Profile
 local profile = {
@@ -170,47 +171,71 @@ local function CheckItem(itemDetails)
 	return false
 end
 
--- Animation function for corner widget
+-- Animation function for corner widget with pause states
 local function AnimateTextures(frame)
 	local elapsedTime = 0
 	local animationTimer
-
-	local function UpdateAnimation()
-		elapsedTime = elapsedTime + ANIMATION_UPDATE_INTERVAL
-
-		-- Calculate position in animation cycle (0 to 1)
-		local cyclePosition = (elapsedTime % ANIMATION_CYCLE_TIME) / ANIMATION_CYCLE_TIME
-
-		-- Calculate alpha values for crossfading
-		local alpha1, alpha2
-		if cyclePosition <= 0.5 then
-			-- First half: fade from texture1 to texture2
-			local fadeProgress = cyclePosition * 2 -- 0 to 1
-			alpha1 = 1 - fadeProgress
-			alpha2 = fadeProgress
-		else
-			-- Second half: fade from texture2 back to texture1
-			local fadeProgress = (cyclePosition - 0.5) * 2 -- 0 to 1
-			alpha1 = fadeProgress
-			alpha2 = 1 - fadeProgress
-		end
-
+	local currentState = 1 -- 1 = blue visible, 2 = fading to green, 3 = green visible, 4 = fading to blue
+	
+	local function SetTextureState(alpha1, alpha2)
 		if frame.texture1 then
 			frame.texture1:SetAlpha(alpha1)
 		end
 		if frame.texture2 then
-			Log('Setting texture2 alpha to ' .. tostring(alpha2))
 			frame.texture2:SetAlpha(alpha2)
-		else
-			Log('Warning: frame.texture2 is nil')
+		end
+	end
+	
+	local function StartPause(nextState, alpha1, alpha2)
+		-- Cancel current animation timer
+		if frame.animationTimer then
+			addon:CancelTimer(frame.animationTimer)
+		end
+		
+		-- Set final alpha values
+		SetTextureState(alpha1, alpha2)
+		currentState = nextState
+		
+		-- Start pause timer
+		frame.animationTimer = addon:ScheduleTimer(function()
+			AnimateTextures(frame) -- Restart animation for next phase
+		end, TIME_BETWEEN_CYCLES)
+		
+		Log('Started pause timer for ' .. TIME_BETWEEN_CYCLES .. ' seconds, next state: ' .. nextState)
+	end
+
+	local function UpdateAnimation()
+		elapsedTime = elapsedTime + ANIMATION_UPDATE_INTERVAL
+		local progress = elapsedTime / ANIMATION_CYCLE_TIME
+		
+		if currentState == 1 then -- Blue visible, start fading to green
+			currentState = 2
+			elapsedTime = 0
+		elseif currentState == 2 then -- Fading blue to green
+			if progress >= 1 then
+				StartPause(3, 0, 1) -- Pause at green
+				return
+			end
+			SetTextureState(1 - progress, progress)
+		elseif currentState == 3 then -- Green visible, start fading to blue
+			currentState = 4
+			elapsedTime = 0
+		elseif currentState == 4 then -- Fading green to blue
+			if progress >= 1 then
+				StartPause(1, 1, 0) -- Pause at blue
+				return
+			end
+			SetTextureState(progress, 1 - progress)
 		end
 	end
 
 	-- Start the animation timer
 	animationTimer = addon:ScheduleRepeatingTimer(UpdateAnimation, ANIMATION_UPDATE_INTERVAL)
 	frame.animationTimer = animationTimer
-
-	Log('Started animation timer for corner widget')
+	
+	-- Start with blue visible
+	SetTextureState(1, 0)
+	Log('Started animation cycle')
 end
 
 -- Baganator Corner Widget Functions
