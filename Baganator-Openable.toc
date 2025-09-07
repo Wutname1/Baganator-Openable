@@ -1,0 +1,11 @@
+## Interface: 110200
+## Title: Baganator - Openable Items
+## Notes: Filters all items that have a <Right Click to Open> or Use option for Baganator
+## IconTexture: Interface/Addons/Baganator-Openable/Icon
+## Version: 1.0.0
+## Author: wutname1
+## X-Category: Bags & Inventory
+## SavedVariables: BaganatorOpenableDB
+## Dependencies: Baganator
+
+main.lua
