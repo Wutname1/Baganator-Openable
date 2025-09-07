@@ -108,6 +108,12 @@ local function CheckItem(itemDetails)
 	local _, _, _, _, _, itemType, itemSubType = C_Item.GetItemInfo(itemLink)
 	local Consumable = itemType == 'Consumable' or itemSubType == 'Consumables'
 
+	if string.find(itemLink, 'Cache') then
+		local consume = C_Item.IsConsumableItem(itemLink)
+		Log('Cache item detected: ' .. itemLink .. ', IsConsumable=' .. tostring(consume))
+		local usable, noMana = C_Item.IsUsableItem(itemLink)
+		Log('Cache item usable: ' .. tostring(usable) .. ', noMana: ' .. tostring(noMana))
+	end
 	if Consumable and itemSubType and string.find(itemSubType, 'Curio') and addon.DB.FilterCurios then
 		return true
 	end
@@ -122,11 +128,12 @@ local function CheckItem(itemDetails)
 	end
 
 	-- Give tooltip time to fully populate
-	if string.find(itemLink, "Cache") then
+	if string.find(itemLink, 'Cache') then
 		Log('Cache item detected, waiting for tooltip to populate...')
 	end
 
 	local numLines = Tooltip:NumLines()
+	Log('Tooltip has ' .. numLines .. ' lines for item: ' .. itemLink)
 	for i = 1, numLines do
 		local leftLine = _G['BaganatorOpenableTextLeft' .. i]
 		local rightLine = _G['BaganatorOpenableTextRight' .. i]
@@ -134,10 +141,10 @@ local function CheckItem(itemDetails)
 			local LineText = leftLine:GetText()
 			if LineText then
 				-- Debug logging for cache items - show ALL lines
-				if string.find(itemLink, "Cache") then
+				if string.find(itemLink, 'Cache') then
 					Log('Cache item tooltip line ' .. i .. ' (LEFT): "' .. LineText .. '"')
 				end
-				
+
 				-- Search for basic openable items
 				for _, v in pairs(SearchItems) do
 					if string.find(LineText, v) then
@@ -146,7 +153,10 @@ local function CheckItem(itemDetails)
 				end
 
 				-- Check for containers (caches, chests, etc.)
-				if addon.DB.FilterContainers and (string.find(LineText, 'Right [Cc]lick to open') or string.find(LineText, '<Right [Cc]lick to [Oo]pen>')) then
+				if
+					addon.DB.FilterContainers and
+						(string.find(LineText, 'Weekly cache') or string.find(LineText, 'Right [Cc]lick to open') or string.find(LineText, '<Right [Cc]lick to [Oo]pen>') or string.find(LineText, 'Contains'))
+				 then
 					Log('Found container with right click text: ' .. LineText)
 					return true
 				end
@@ -193,22 +203,22 @@ local function CheckItem(itemDetails)
 				end
 			end
 		end
-		
+
 		if rightLine then
 			local RightLineText = rightLine:GetText()
 			if RightLineText then
 				-- Debug logging for cache items - show RIGHT lines too
-				if string.find(itemLink, "Cache") then
+				if string.find(itemLink, 'Cache') then
 					Log('Cache item tooltip line ' .. i .. ' (RIGHT): "' .. RightLineText .. '"')
 				end
-				
+
 				-- Search right side text too
 				for _, v in pairs(SearchItems) do
 					if string.find(RightLineText, v) then
 						return true
 					end
 				end
-				
+
 				-- Check right side for containers
 				if addon.DB.FilterContainers and (string.find(RightLineText, 'Right [Cc]lick to open') or string.find(RightLineText, '<Right [Cc]lick to [Oo]pen>')) then
 					Log('Found container with right click text: ' .. RightLineText)
@@ -217,9 +227,9 @@ local function CheckItem(itemDetails)
 			end
 		end
 	end
-	
+
 	-- Final debug for cache items
-	if string.find(itemLink, "Cache") then
+	if string.find(itemLink, 'Cache') then
 		Log('Cache item tooltip scan complete: ' .. numLines .. ' total lines, no "Right click to open" found')
 	end
 
@@ -240,7 +250,9 @@ local function StartGlobalTimer()
 	if not globalAnimationTimer then
 		globalAnimationTimer = addon:ScheduleRepeatingTimer(GlobalAnimationUpdate, ANIMATION_UPDATE_INTERVAL)
 		local count = 0
-		for _ in pairs(animatingFrames) do count = count + 1 end
+		for _ in pairs(animatingFrames) do
+			count = count + 1
+		end
 		Log('Started global animation timer for ' .. count .. ' frames')
 	end
 end
@@ -278,11 +290,15 @@ local function AnimateTextures(frame)
 		frame.animationState = nextState
 
 		-- Start pause timer (individual timer for pauses)
-		frame.pauseTimer = addon:ScheduleTimer(function()
-			AnimateTextures(frame) -- Restart animation for next phase
-		end, TIME_BETWEEN_CYCLES)
+		frame.pauseTimer =
+			addon:ScheduleTimer(
+			function()
+				AnimateTextures(frame) -- Restart animation for next phase
+			end,
+			TIME_BETWEEN_CYCLES
+		)
 
-		Log('Started pause timer for ' .. TIME_BETWEEN_CYCLES .. ' seconds, next state: ' .. nextState)
+		Log('Started pause timer for ' .. TIME_BETWEEN_CYCLES .. ' seconds, next state: ' .. nextState, 'debug')
 	end
 
 	local function UpdateAnimation()
@@ -293,15 +309,19 @@ local function AnimateTextures(frame)
 			currentState = 2
 			frame.animationState = 2
 			elapsedTime = 0
-			Log('Starting fade: blue to green')
+			Log('Starting fade: blue to green', 'debug')
 		elseif currentState == 2 then -- Fading blue to green
 			if progress >= 1 then
 				-- Remove from global animation during pause
 				animatingFrames[frame] = nil
 				local count = 0
-				for _ in pairs(animatingFrames) do count = count + 1 end
-				if count == 0 then StopGlobalTimer() end
-				
+				for _ in pairs(animatingFrames) do
+					count = count + 1
+				end
+				if count == 0 then
+					StopGlobalTimer()
+				end
+
 				StartPause(3, 0, 1) -- Pause at green
 				return
 			end
@@ -310,15 +330,19 @@ local function AnimateTextures(frame)
 			currentState = 4
 			frame.animationState = 4
 			elapsedTime = 0
-			Log('Starting fade: green to blue')
+			Log('Starting fade: green to blue', 'debug')
 		elseif currentState == 4 then -- Fading green to blue
 			if progress >= 1 then
 				-- Remove from global animation during pause
 				animatingFrames[frame] = nil
 				local count = 0
-				for _ in pairs(animatingFrames) do count = count + 1 end
-				if count == 0 then StopGlobalTimer() end
-				
+				for _ in pairs(animatingFrames) do
+					count = count + 1
+				end
+				if count == 0 then
+					StopGlobalTimer()
+				end
+
 				StartPause(1, 1, 0) -- Pause at blue
 				return
 			end
@@ -334,10 +358,10 @@ local function AnimateTextures(frame)
 	-- Set initial state based on current animation state
 	if currentState == 1 or currentState == 2 then
 		SetTextureState(1, 0) -- Start with blue visible
-		Log('Started animation cycle at blue')
+		Log('Started animation cycle at blue', 'debug')
 	elseif currentState == 3 or currentState == 4 then
 		SetTextureState(0, 1) -- Start with green visible
-		Log('Started animation cycle at green')
+		Log('Started animation cycle at green', 'debug')
 	end
 end
 
@@ -381,18 +405,22 @@ local function CleanupAnimation(cornerFrame)
 	if animatingFrames[cornerFrame] then
 		animatingFrames[cornerFrame] = nil
 		local count = 0
-		for _ in pairs(animatingFrames) do count = count + 1 end
-		if count == 0 then StopGlobalTimer() end
-		Log('Removed frame from global animation, ' .. count .. ' frames remaining')
+		for _ in pairs(animatingFrames) do
+			count = count + 1
+		end
+		if count == 0 then
+			StopGlobalTimer()
+		end
+		Log('Removed frame from global animation, ' .. count .. ' frames remaining', 'debug')
 	end
-	
+
 	-- Cancel pause timer if running
 	if cornerFrame.pauseTimer then
 		addon:CancelTimer(cornerFrame.pauseTimer)
 		cornerFrame.pauseTimer = nil
 		Log('Canceled pause timer')
 	end
-	
+
 	-- Reset state
 	cornerFrame.animationState = nil
 	cornerFrame.updateFunction = nil
@@ -433,9 +461,7 @@ local function OnCornerWidgetUpdate(cornerFrame, itemDetails)
 end
 
 -- Register corner widget at top level like Baganator's own widgets
-print('BaganatorOpenable: Attempting direct registration at top level')
 if Baganator and Baganator.API and Baganator.API.RegisterCornerWidget then
-	print('BaganatorOpenable: Baganator API found, registering corner widget')
 	local success, err =
 		pcall(
 		function()
@@ -460,34 +486,12 @@ else
 end
 
 function addon:OnInitialize()
-	-- Debug SUI logging setup
-	if SUI then
-		print('BaganatorOpenable: SUI detected - checking logging config')
-		if SUI.DBMod then
-			print('BaganatorOpenable: SUI.DBMod found')
-			if SUI.DBMod.LoggingFlags then
-				print('BaganatorOpenable: Using SUI.DBMod.LoggingFlags')
-			end
-		end
-		if SUI.DB then
-			print('BaganatorOpenable: SUI.DB found')
-			if SUI.DB.EnabledLogModules then
-				print('BaganatorOpenable: Using SUI.DB.EnabledLogModules')
-			elseif SUI.DB.LogModules then
-				print('BaganatorOpenable: Using SUI.DB.LogModules')
-			end
-		end
-	else
-		print('BaganatorOpenable: SUI not detected - using print fallback')
-	end
-
 	Log('BaganatorOpenable addon initializing...')
-	print('BaganatorOpenable: OnInitialize called')
 	-- Setup DB
 	self.DataBase = LibStub('AceDB-3.0'):New('BaganatorOpenableDB', {profile = profile}, true)
 	self.DB = self.DataBase.profile ---@type Profile
 	Log('Database initialized with ShowOpenableIndicator: ' .. tostring(self.DB.ShowOpenableIndicator))
-	
+
 	-- Setup options panel
 	self:SetupOptions()
 end
@@ -501,195 +505,166 @@ function addon:OnDisable()
 	self:CancelAllTimers()
 end
 
-function addon:RegisterWithBaganator()
-	print('BaganatorOpenable: RegisterWithBaganator function called')
-	Log('Attempting to register with Baganator...')
-	print('BaganatorOpenable: Attempting to register with Baganator...')
-
-	-- Check what's available
-	print('BaganatorOpenable: IsAddOnLoaded(Baganator)=' .. tostring(IsAddOnLoaded('Baganator')))
-	print('BaganatorOpenable: Baganator global=' .. tostring(Baganator))
-
-	if not Baganator then
-		Log('ERROR: Baganator global not found')
-		print('BaganatorOpenable: ERROR - Baganator global not found')
-		print('BaganatorOpenable: Will try to register when Baganator loads')
-		self:RegisterEvent('ADDON_LOADED')
-		return
-	end
-	if not Baganator.API then
-		Log('ERROR: Baganator.API not found')
-		print('BaganatorOpenable: ERROR - Baganator.API not found')
-		return
-	end
-	if not Baganator.API.RegisterCornerWidget then
-		Log('ERROR: Baganator.API.RegisterCornerWidget not found')
-		print('BaganatorOpenable: ERROR - Baganator.API.RegisterCornerWidget not found')
-		return
-	end
-
-	Log('Registering corner widget with Baganator API...')
-	print('BaganatorOpenable: Registering corner widget with Baganator API...')
-
-	local success, err =
-		pcall(
-		function()
-			Baganator.API.RegisterCornerWidget(
-				'Openable Items', -- label
-				'baganator_openable_items', -- id
-				OnCornerWidgetUpdate, -- onUpdate
-				OnCornerWidgetInit, -- onInit
-				{corner = 'bottom_right', priority = 1}, -- defaultPosition
-				false -- isFast
-			)
-		end
-	)
-
-	if not success then
-		Log('ERROR during registration: ' .. tostring(err))
-		print('BaganatorOpenable: ERROR during registration - ' .. tostring(err))
-		return
-	end
-
-	Log('Corner widget registration completed!')
-	print('BaganatorOpenable: Corner widget registration completed!')
-
-	-- Check if it was registered successfully
-	if Baganator.API.IsCornerWidgetActive and Baganator.API.IsCornerWidgetActive('baganator_openable_items') then
-		Log('Corner widget is ACTIVE in Baganator')
-		print('BaganatorOpenable: Corner widget is ACTIVE in Baganator')
-	else
-		Log('Corner widget is NOT ACTIVE in Baganator - may need to be enabled in options')
-		print('BaganatorOpenable: Corner widget is NOT ACTIVE - check Baganator options')
-	end
-end
-
-function addon:ADDON_LOADED(event, loadedAddon)
-	print('BaganatorOpenable: ADDON_LOADED event - ' .. tostring(loadedAddon))
-	if loadedAddon == 'Baganator' then
-		Log('Baganator addon loaded event received, registering...')
-		print('BaganatorOpenable: Baganator loaded event received')
-		self:RegisterWithBaganator()
-		self:UnregisterEvent('ADDON_LOADED')
-	end
-end
-
 -- AceOptions Configuration
 local function GetOptions()
 	return {
-		name = "Baganator Openable",
-		type = "group",
+		name = 'Baganator Openable',
+		type = 'group',
 		args = {
 			header = {
-				type = "description",
-				name = "Baganator Openable Settings\n",
-				fontSize = "large",
-				order = 1,
+				type = 'description',
+				name = 'Baganator Openable Settings\n',
+				fontSize = 'large',
+				order = 1
 			},
 			showIndicator = {
-				type = "toggle",
-				name = "Show Openable Indicator",
-				desc = "Display animated corner widget on openable items",
-				get = function() return addon.DB.ShowOpenableIndicator end,
-				set = function(_, value) addon.DB.ShowOpenableIndicator = value end,
-				order = 10,
+				type = 'toggle',
+				name = 'Show Openable Indicator',
+				desc = 'Display animated corner widget on openable items',
+				get = function()
+					return addon.DB.ShowOpenableIndicator
+				end,
+				set = function(_, value)
+					addon.DB.ShowOpenableIndicator = value
+				end,
+				order = 10
 			},
 			filterHeader = {
-				type = "header",
-				name = "Item Type Filters",
-				order = 20,
+				type = 'header',
+				name = 'Item Type Filters',
+				order = 20
 			},
 			filterDesc = {
-				type = "description",
-				name = "Choose which types of openable items to highlight:",
-				order = 21,
+				type = 'description',
+				name = 'Choose which types of openable items to highlight:',
+				order = 21
 			},
 			filterToys = {
-				type = "toggle",
-				name = "Toys",
-				desc = "Highlight toy items that can be learned",
-				get = function() return addon.DB.FilterToys end,
-				set = function(_, value) addon.DB.FilterToys = value end,
-				order = 30,
+				type = 'toggle',
+				name = 'Toys',
+				desc = 'Highlight toy items that can be learned',
+				get = function()
+					return addon.DB.FilterToys
+				end,
+				set = function(_, value)
+					addon.DB.FilterToys = value
+				end,
+				order = 30
 			},
 			filterAppearance = {
-				type = "toggle",
-				name = "Appearances",
-				desc = "Highlight items that teach appearances/transmog",
-				get = function() return addon.DB.FilterAppearance end,
-				set = function(_, value) addon.DB.FilterAppearance = value end,
-				order = 31,
+				type = 'toggle',
+				name = 'Appearances',
+				desc = 'Highlight items that teach appearances/transmog',
+				get = function()
+					return addon.DB.FilterAppearance
+				end,
+				set = function(_, value)
+					addon.DB.FilterAppearance = value
+				end,
+				order = 31
 			},
 			filterMounts = {
-				type = "toggle",
-				name = "Mounts",
-				desc = "Highlight mount teaching items",
-				get = function() return addon.DB.FilterMounts end,
-				set = function(_, value) addon.DB.FilterMounts = value end,
-				order = 32,
+				type = 'toggle',
+				name = 'Mounts',
+				desc = 'Highlight mount teaching items',
+				get = function()
+					return addon.DB.FilterMounts
+				end,
+				set = function(_, value)
+					addon.DB.FilterMounts = value
+				end,
+				order = 32
 			},
 			filterCompanion = {
-				type = "toggle",
-				name = "Companions/Pets",
-				desc = "Highlight companion and pet items",
-				get = function() return addon.DB.FilterCompanion end,
-				set = function(_, value) addon.DB.FilterCompanion = value end,
-				order = 33,
+				type = 'toggle',
+				name = 'Companions/Pets',
+				desc = 'Highlight companion and pet items',
+				get = function()
+					return addon.DB.FilterCompanion
+				end,
+				set = function(_, value)
+					addon.DB.FilterCompanion = value
+				end,
+				order = 33
 			},
 			filterRepGain = {
-				type = "toggle",
-				name = "Reputation Items",
-				desc = "Highlight items that give reputation",
-				get = function() return addon.DB.FilterRepGain end,
-				set = function(_, value) addon.DB.FilterRepGain = value end,
-				order = 34,
+				type = 'toggle',
+				name = 'Reputation Items',
+				desc = 'Highlight items that give reputation',
+				get = function()
+					return addon.DB.FilterRepGain
+				end,
+				set = function(_, value)
+					addon.DB.FilterRepGain = value
+				end,
+				order = 34
 			},
 			filterCurios = {
-				type = "toggle",
-				name = "Curios",
-				desc = "Highlight curio items",
-				get = function() return addon.DB.FilterCurios end,
-				set = function(_, value) addon.DB.FilterCurios = value end,
-				order = 35,
+				type = 'toggle',
+				name = 'Curios',
+				desc = 'Highlight curio items',
+				get = function()
+					return addon.DB.FilterCurios
+				end,
+				set = function(_, value)
+					addon.DB.FilterCurios = value
+				end,
+				order = 35
 			},
 			filterContainers = {
-				type = "toggle",
-				name = "Containers",
+				type = 'toggle',
+				name = 'Containers',
 				desc = "Highlight containers with 'Right click to open' text (caches, chests, etc.)",
-				get = function() return addon.DB.FilterContainers end,
-				set = function(_, value) addon.DB.FilterContainers = value end,
-				order = 36,
+				get = function()
+					return addon.DB.FilterContainers
+				end,
+				set = function(_, value)
+					addon.DB.FilterContainers = value
+				end,
+				order = 36
 			},
 			filterKnowledge = {
-				type = "toggle",
-				name = "Knowledge Items",
-				desc = "Highlight knowledge/profession learning items",
-				get = function() return addon.DB.FilterKnowledge end,
-				set = function(_, value) addon.DB.FilterKnowledge = value end,
-				order = 37,
+				type = 'toggle',
+				name = 'Knowledge Items',
+				desc = 'Highlight knowledge/profession learning items',
+				get = function()
+					return addon.DB.FilterKnowledge
+				end,
+				set = function(_, value)
+					addon.DB.FilterKnowledge = value
+				end,
+				order = 37
 			},
 			filterCreatable = {
-				type = "toggle",
-				name = "Creatable Items",
-				desc = "Highlight items that create class-specific gear",
-				get = function() return addon.DB.CreatableItem end,
-				set = function(_, value) addon.DB.CreatableItem = value end,
-				order = 38,
+				type = 'toggle',
+				name = 'Creatable Items',
+				desc = 'Highlight items that create class-specific gear',
+				get = function()
+					return addon.DB.CreatableItem
+				end,
+				set = function(_, value)
+					addon.DB.CreatableItem = value
+				end,
+				order = 38
 			},
 			filterGeneric = {
-				type = "toggle",
-				name = "Generic Use Items",
+				type = 'toggle',
+				name = 'Generic Use Items',
 				desc = "Highlight generic 'Use:' items (may be noisy)",
-				get = function() return addon.DB.FilterGenericUse end,
-				set = function(_, value) addon.DB.FilterGenericUse = value end,
-				order = 39,
-			},
+				get = function()
+					return addon.DB.FilterGenericUse
+				end,
+				set = function(_, value)
+					addon.DB.FilterGenericUse = value
+				end,
+				order = 39
+			}
 		}
 	}
 end
 
 function addon:SetupOptions()
-	LibStub("AceConfig-3.0"):RegisterOptionsTable("BaganatorOpenable", GetOptions)
-	LibStub("AceConfigDialog-3.0"):AddToBlizOptions("BaganatorOpenable", "Baganator Openable")
+	LibStub('AceConfig-3.0'):RegisterOptionsTable('BaganatorOpenable', GetOptions)
+	LibStub('AceConfigDialog-3.0'):AddToBlizOptions('BaganatorOpenable', 'Baganator Openable')
 	Log('Options panel registered with Blizzard Interface')
 end
