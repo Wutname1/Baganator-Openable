@@ -9,4 +9,8 @@
 ## Dependencies: Baganator
 ## OptionalDependencies: SpartanUI
 
+# Required Ace3 libraries
+libs\Ace3\Ace3.xml
+
+# Core addon file
 main.lua
