@@ -3,11 +3,6 @@ local addonName, root = ... --[[@type string, table]]
 ---@class BaganatorOpenable: AceAddon, AceTimer-3.0
 local addon = LibStub('AceAddon-3.0'):NewAddon(addonName, 'AceEvent-3.0', 'AceTimer-3.0')
 
--- Animation Constants
-local ANIMATION_CYCLE_TIME = .5 -- Time to fade from one color to another
-local TIME_BETWEEN_CYCLES = .10 -- Time to pause at each color
-local ANIMATION_UPDATE_INTERVAL = 0.1 -- How often to update the animation (10 FPS)
-
 -- Simple global animation system - just replace individual timers with one master timer
 local globalAnimationTimer = nil
 local animatingFrames = {}
@@ -24,7 +19,11 @@ local profile = {
 	FilterKnowledge = true,
 	FilterContainers = true,
 	CreatableItem = true,
-	ShowOpenableIndicator = true
+	ShowOpenableIndicator = true,
+	-- Animation Settings
+	AnimationCycleTime = 0.5,
+	TimeBetweenCycles = 0.10,
+	AnimationUpdateInterval = 0.1
 }
 
 --Get Locale
@@ -230,8 +229,48 @@ local function CheckItem(itemDetails)
 	return false
 end
 
+-- Helper function to check if Baganator bags are visible
+local function AreBagsVisible()
+	if not Baganator then
+		return false
+	end
+	
+	-- Check modern Baganator API first
+	if Baganator.Core and Baganator.Core.ViewManagement and Baganator.Core.ViewManagement.GetAllViews then
+		local views = Baganator.Core.ViewManagement.GetAllViews()
+		for _, view in pairs(views) do
+			if view:IsShown() then
+				return true
+			end
+		end
+	end
+	
+	-- Fallback checks for legacy frame names
+	if BaganatorBagView and BaganatorBagView:IsShown() then
+		return true
+	end
+	
+	if BaganatorBankView and BaganatorBankView:IsShown() then
+		return true
+	end
+	
+	-- Additional fallback - check for any visible Baganator frames
+	if Baganator.API and Baganator.API.IsViewVisible then
+		return Baganator.API.IsViewVisible()
+	end
+	
+	return false
+end
+
 -- Global animation update function - runs all frame animations
 local function GlobalAnimationUpdate()
+	-- Check if Baganator bags are visible before updating animations
+	if not AreBagsVisible() then
+		Log('Bags not visible, stopping animation timer to save resources', 'debug')
+		StopGlobalTimer()
+		return
+	end
+	
 	for frame in pairs(animatingFrames) do
 		if frame.updateFunction then
 			frame.updateFunction()
@@ -242,12 +281,18 @@ end
 -- Start global timer if not running
 local function StartGlobalTimer()
 	if not globalAnimationTimer then
-		globalAnimationTimer = addon:ScheduleRepeatingTimer(GlobalAnimationUpdate, ANIMATION_UPDATE_INTERVAL)
+		-- Only start timer if bags are visible
+		if not AreBagsVisible() then
+			Log('Bags not visible, skipping animation timer start', 'debug')
+			return
+		end
+		
+		globalAnimationTimer = addon:ScheduleRepeatingTimer(GlobalAnimationUpdate, addon.DB.AnimationUpdateInterval)
 		local count = 0
 		for _ in pairs(animatingFrames) do
 			count = count + 1
 		end
-		Log('Started global animation timer for ' .. count .. ' frames')
+		Log('Started global animation timer for ' .. count .. ' frames (bags visible)')
 	end
 end
 
@@ -289,15 +334,15 @@ local function AnimateTextures(frame)
 			function()
 				AnimateTextures(frame) -- Restart animation for next phase
 			end,
-			TIME_BETWEEN_CYCLES
+			addon.DB.TimeBetweenCycles
 		)
 
-		Log('Started pause timer for ' .. TIME_BETWEEN_CYCLES .. ' seconds, next state: ' .. nextState, 'debug')
+		Log('Started pause timer for ' .. addon.DB.TimeBetweenCycles .. ' seconds, next state: ' .. nextState, 'debug')
 	end
 
 	local function UpdateAnimation()
-		elapsedTime = elapsedTime + ANIMATION_UPDATE_INTERVAL
-		local progress = elapsedTime / ANIMATION_CYCLE_TIME
+		elapsedTime = elapsedTime + addon.DB.AnimationUpdateInterval
+		local progress = elapsedTime / addon.DB.AnimationCycleTime
 
 		if currentState == 1 then -- Blue visible, start fading to green
 			currentState = 2
@@ -420,6 +465,44 @@ local function CleanupAnimation(cornerFrame)
 	cornerFrame.updateFunction = nil
 end
 
+-- Function to refresh all corner widgets after settings changes
+local function RefreshAllCornerWidgets()
+	if not Baganator or not AreBagsVisible() then
+		Log('Baganator not available or bags not visible, skipping refresh')
+		return
+	end
+	
+	Log('Refreshing all corner widgets due to settings change')
+	
+	-- Try to trigger Baganator's corner widget refresh
+	if Baganator.API and Baganator.API.RequestItemButtonsRefresh then
+		-- Modern API method
+		Baganator.API.RequestItemButtonsRefresh()
+		Log('Requested item buttons refresh via API')
+	elseif Baganator.Core and Baganator.Core.ViewManagement then
+		-- Try to refresh all views
+		if Baganator.Core.ViewManagement.GetAllViews then
+			local views = Baganator.Core.ViewManagement.GetAllViews()
+			for _, view in pairs(views) do
+				if view:IsShown() and view.RefreshItems then
+					view:RefreshItems()
+				elseif view:IsShown() and view.UpdateView then
+					view:UpdateView()
+				end
+			end
+			Log('Refreshed views via ViewManagement')
+		end
+	else
+		-- Fallback: Force corner widget updates by clearing and re-evaluating animations
+		-- Stop all current animations first
+		for frame in pairs(animatingFrames) do
+			CleanupAnimation(frame)
+		end
+		
+		Log('Cleared all animations, widgets will re-evaluate on next update cycle')
+	end
+end
+
 local function OnCornerWidgetUpdate(cornerFrame, itemDetails)
 	if not addon.DB.ShowOpenableIndicator then
 		Log('ShowOpenableIndicator is disabled, hiding widget')
@@ -484,6 +567,25 @@ function addon:OnInitialize()
 
 	-- Setup options panel
 	self:SetupOptions()
+	
+	-- Register events to restart animation when bags are opened
+	self:RegisterEvent('ADDON_LOADED')
+end
+
+function addon:ADDON_LOADED(event, addonName)
+	if addonName == 'Baganator' then
+		-- Hook into Baganator events if available
+		if Baganator and Baganator.CallbackRegistry then
+			Baganator.CallbackRegistry:RegisterCallback('BagShow', function()
+				-- Restart animation for any frames that should be animating when bags open
+				if next(animatingFrames) then
+					Log('Bags shown, restarting animation timer')
+					StartGlobalTimer()
+				end
+			end)
+		end
+		self:UnregisterEvent('ADDON_LOADED')
+	end
 end
 
 function addon:OnDisable()
@@ -516,6 +618,8 @@ local function GetOptions()
 				end,
 				set = function(_, value)
 					addon.DB.ShowOpenableIndicator = value
+					-- Refresh all widgets when indicator is toggled
+					RefreshAllCornerWidgets()
 				end,
 				order = 10
 			},
@@ -648,6 +752,64 @@ local function GetOptions()
 					addon.DB.FilterGenericUse = value
 				end,
 				order = 39
+			},
+			animationHeader = {
+				type = 'header',
+				name = 'Animation Settings',
+				order = 40
+			},
+			animationGroup = {
+				type = 'group',
+				name = 'Animation Timing',
+				inline = true,
+				order = 41,
+				args = {
+					cycleTime = {
+						type = 'range',
+						name = 'Cycle Time',
+						desc = 'Time to fade from one color to another (seconds)',
+						min = 0.1,
+						max = 6.0,
+						step = 0.05,
+						get = function()
+							return addon.DB.AnimationCycleTime
+						end,
+						set = function(_, value)
+							addon.DB.AnimationCycleTime = value
+						end,
+						order = 1
+					},
+					betweenCycles = {
+						type = 'range',
+						name = 'Pause Between Cycles',
+						desc = 'Time to pause at each color (seconds)',
+						min = 0.1,
+						max = 6.0,
+						step = 0.05,
+						get = function()
+							return addon.DB.TimeBetweenCycles
+						end,
+						set = function(_, value)
+							addon.DB.TimeBetweenCycles = value
+						end,
+						order = 2
+					},
+					updateInterval = {
+						type = 'range',
+						name = 'Update Interval',
+						desc = 'How often to update the animation (seconds) - lower = smoother',
+						min = 0.1,
+						max = 6.0,
+						step = 0.05,
+						get = function()
+							return addon.DB.AnimationUpdateInterval
+						end,
+						set = function(_, value)
+							addon.DB.AnimationUpdateInterval = value
+						end,
+						order = 3
+					}
+				}
 			}
 		}
 	}
