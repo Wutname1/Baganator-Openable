@@ -467,40 +467,59 @@ end
 
 -- Function to refresh all corner widgets after settings changes
 local function RefreshAllCornerWidgets()
-	if not Baganator or not AreBagsVisible() then
-		Log('Baganator not available or bags not visible, skipping refresh')
-		return
-	end
-	
-	Log('Refreshing all corner widgets due to settings change')
-	
-	-- Try to trigger Baganator's corner widget refresh
-	if Baganator.API and Baganator.API.RequestItemButtonsRefresh then
-		-- Modern API method
-		Baganator.API.RequestItemButtonsRefresh()
-		Log('Requested item buttons refresh via API')
-	elseif Baganator.Core and Baganator.Core.ViewManagement then
-		-- Try to refresh all views
-		if Baganator.Core.ViewManagement.GetAllViews then
-			local views = Baganator.Core.ViewManagement.GetAllViews()
-			for _, view in pairs(views) do
-				if view:IsShown() and view.RefreshItems then
-					view:RefreshItems()
-				elseif view:IsShown() and view.UpdateView then
-					view:UpdateView()
-				end
-			end
-			Log('Refreshed views via ViewManagement')
-		end
-	else
-		-- Fallback: Force corner widget updates by clearing and re-evaluating animations
-		-- Stop all current animations first
-		for frame in pairs(animatingFrames) do
-			CleanupAnimation(frame)
+	-- Add a small delay to ensure settings are fully applied
+	addon:ScheduleTimer(function()
+		if not Baganator or not AreBagsVisible() then
+			Log('Baganator not available or bags not visible, skipping refresh')
+			return
 		end
 		
-		Log('Cleared all animations, widgets will re-evaluate on next update cycle')
-	end
+		Log('Refreshing all corner widgets due to settings change')
+		
+		-- Try to trigger Baganator's corner widget refresh
+		if Baganator.API and Baganator.API.RequestItemButtonsRefresh then
+			-- Modern API method
+			Baganator.API.RequestItemButtonsRefresh()
+			Log('Requested item buttons refresh via API')
+		elseif Baganator.Core and Baganator.Core.ViewManagement then
+			-- Try to refresh all views
+			if Baganator.Core.ViewManagement.GetAllViews then
+				local views = Baganator.Core.ViewManagement.GetAllViews()
+				for _, view in pairs(views) do
+					if view:IsShown() and view.RefreshItems then
+						view:RefreshItems()
+						Log('Refreshed view via RefreshItems')
+					elseif view:IsShown() and view.UpdateView then
+						view:UpdateView()
+						Log('Refreshed view via UpdateView')
+					end
+				end
+			end
+		else
+			-- Fallback: Force corner widget updates by clearing and re-evaluating animations
+			-- Stop all current animations first
+			for frame in pairs(animatingFrames) do
+				CleanupAnimation(frame)
+			end
+			
+			-- Try to trigger a bag contents update event to force refresh
+			if Baganator and Baganator.API then
+				-- Try to trigger a refresh via event system
+				addon:ScheduleTimer(function()
+					-- Force a BAG_UPDATE_DELAYED event which should refresh corner widgets
+					if Baganator.API.FireBagUpdateEvent then
+						Baganator.API.FireBagUpdateEvent()
+						Log('Triggered BAG_UPDATE event via API')
+					elseif Baganator.UnifiedBags and Baganator.UnifiedBags.RefreshBags then
+						Baganator.UnifiedBags.RefreshBags()
+						Log('Refreshed bags via UnifiedBags')
+					end
+				end, 0.05)
+			end
+			
+			Log('Cleared all animations, widgets will re-evaluate on next update cycle')
+		end
+	end, 0.1)
 end
 
 local function OnCornerWidgetUpdate(cornerFrame, itemDetails)
@@ -642,6 +661,7 @@ local function GetOptions()
 				end,
 				set = function(_, value)
 					addon.DB.FilterToys = value
+					RefreshAllCornerWidgets()
 				end,
 				order = 30
 			},
@@ -654,6 +674,7 @@ local function GetOptions()
 				end,
 				set = function(_, value)
 					addon.DB.FilterAppearance = value
+					RefreshAllCornerWidgets()
 				end,
 				order = 31
 			},
@@ -666,6 +687,7 @@ local function GetOptions()
 				end,
 				set = function(_, value)
 					addon.DB.FilterMounts = value
+					RefreshAllCornerWidgets()
 				end,
 				order = 32
 			},
@@ -678,6 +700,7 @@ local function GetOptions()
 				end,
 				set = function(_, value)
 					addon.DB.FilterCompanion = value
+					RefreshAllCornerWidgets()
 				end,
 				order = 33
 			},
@@ -690,6 +713,7 @@ local function GetOptions()
 				end,
 				set = function(_, value)
 					addon.DB.FilterRepGain = value
+					RefreshAllCornerWidgets()
 				end,
 				order = 34
 			},
@@ -702,6 +726,7 @@ local function GetOptions()
 				end,
 				set = function(_, value)
 					addon.DB.FilterCurios = value
+					RefreshAllCornerWidgets()
 				end,
 				order = 35
 			},
@@ -714,6 +739,7 @@ local function GetOptions()
 				end,
 				set = function(_, value)
 					addon.DB.FilterContainers = value
+					RefreshAllCornerWidgets()
 				end,
 				order = 36
 			},
@@ -726,6 +752,7 @@ local function GetOptions()
 				end,
 				set = function(_, value)
 					addon.DB.FilterKnowledge = value
+					RefreshAllCornerWidgets()
 				end,
 				order = 37
 			},
@@ -738,6 +765,7 @@ local function GetOptions()
 				end,
 				set = function(_, value)
 					addon.DB.CreatableItem = value
+					RefreshAllCornerWidgets()
 				end,
 				order = 38
 			},
@@ -750,6 +778,7 @@ local function GetOptions()
 				end,
 				set = function(_, value)
 					addon.DB.FilterGenericUse = value
+					RefreshAllCornerWidgets()
 				end,
 				order = 39
 			},
