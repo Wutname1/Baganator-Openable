@@ -1,7 +1,7 @@
 local addonName, root = ... --[[@type string, table]]
 
----@class BaganatorOpenable: AceAddon, AceTimer-3.0
-local addon = LibStub('AceAddon-3.0'):NewAddon(addonName, 'AceEvent-3.0', 'AceTimer-3.0')
+---@class BaganatorOpenable: AceAddon, AceTimer-3.0, AceHook-3.0
+local addon = LibStub('AceAddon-3.0'):NewAddon(addonName, 'AceEvent-3.0', 'AceTimer-3.0', 'AceHook-3.0')
 
 -- Simple global animation system - just replace individual timers with one master timer
 local globalAnimationTimer = nil
@@ -63,7 +63,7 @@ local function Log(msg, level)
 	if SUI and SUI.Log then
 		SUI.Log(tostring(msg), 'BaganatorOpenable', level or 'info')
 	else
-		-- print('BaganatorOpenable: ' .. tostring(msg))
+		print('BaganatorOpenable: ' .. tostring(msg))
 	end
 end
 
@@ -86,6 +86,20 @@ local SearchItems = {
 	ITEM_OPENABLE
 }
 
+-- Helper function to cache and return openable result
+local function CacheOpenableResult(itemID, isOpenable)
+	if itemID and addon.GlobalDB and addon.GlobalDB.itemCache then
+		if isOpenable then
+			addon.GlobalDB.itemCache.openable[itemID] = true
+			Log('Cached item ' .. itemID .. ' as openable', 'debug')
+		else
+			addon.GlobalDB.itemCache.notOpenable[itemID] = true
+			Log('Cached item ' .. itemID .. ' as not openable', 'debug')
+		end
+	end
+	return isOpenable
+end
+
 ---Check if an item is openable/usable based on tooltip scanning
 ---@param itemDetails table Baganator item details
 ---@return boolean|nil isOpenable True if item is openable, false if not, nil if can't determine
@@ -96,6 +110,19 @@ local function CheckItem(itemDetails)
 
 	local itemLink = itemDetails.itemLink
 	local bagID, slotID = itemDetails.bagID, itemDetails.slotID
+
+	-- Get itemID for caching
+	local itemID = C_Item.GetItemInfoInstant(itemLink)
+	if itemID and addon.GlobalDB and addon.GlobalDB.itemCache then
+		-- Check cache first
+		if addon.GlobalDB.itemCache.openable[itemID] then
+			Log('Cache hit: Item ' .. itemID .. ' is openable', 'debug')
+			return true
+		elseif addon.GlobalDB.itemCache.notOpenable[itemID] then
+			Log('Cache hit: Item ' .. itemID .. ' is not openable', 'debug')
+			return false
+		end
+	end
 
 	-- Quick check for common openable item types
 	local _, _, _, _, _, itemType, itemSubType = C_Item.GetItemInfo(itemLink)
@@ -108,7 +135,7 @@ local function CheckItem(itemDetails)
 		Log('Cache item usable: ' .. tostring(usable) .. ', noMana: ' .. tostring(noMana))
 	end
 	if Consumable and itemSubType and string.find(itemSubType, 'Curio') and addon.DB.FilterCurios then
-		return true
+		return CacheOpenableResult(itemID, true)
 	end
 
 	-- Use tooltip scanning for detailed analysis
@@ -126,7 +153,7 @@ local function CheckItem(itemDetails)
 	end
 
 	local numLines = Tooltip:NumLines()
-	Log('Tooltip has ' .. numLines .. ' lines for item: ' .. itemLink)
+	Log('Tooltip has ' .. numLines .. ' lines for item: ' .. itemLink, 'debug')
 	for i = 1, numLines do
 		local leftLine = _G['BaganatorOpenableTextLeft' .. i]
 		local rightLine = _G['BaganatorOpenableTextRight' .. i]
@@ -141,58 +168,59 @@ local function CheckItem(itemDetails)
 				-- Search for basic openable items
 				for _, v in pairs(SearchItems) do
 					if string.find(LineText, v) then
-						return true
+						return CacheOpenableResult(itemID, true)
 					end
 				end
 
 				-- Check for containers (caches, chests, etc.)
 				if
 					addon.DB.FilterContainers and
-						(string.find(LineText, 'Weekly cache') or string.find(LineText, 'Right [Cc]lick to open') or string.find(LineText, '<Right [Cc]lick to [Oo]pen>') or string.find(LineText, 'Contains'))
+						(string.find(LineText, 'Weekly cache') or string.find(LineText, 'Cache of') or string.find(LineText, 'Right [Cc]lick to open') or string.find(LineText, '<Right [Cc]lick to [Oo]pen>') or
+							string.find(LineText, 'Contains'))
 				 then
 					Log('Found container with right click text: ' .. LineText)
-					return true
+					return CacheOpenableResult(itemID, true)
 				end
 
 				if addon.DB.FilterAppearance and (string.find(LineText, ITEM_COSMETIC_LEARN) or string.find(LineText, GetLocaleString('Use: Collect the appearance'))) then
-					return true
+					return CacheOpenableResult(itemID, true)
 				end
 
 				-- Remove (%s). from ITEM_CREATE_LOOT_SPEC_ITEM
 				local CreateItemString = ITEM_CREATE_LOOT_SPEC_ITEM:gsub(' %(%%s%)%.', '')
 				if addon.DB.CreatableItem and (string.find(LineText, CreateItemString) or string.find(LineText, 'Create a soulbound item for your class')) then
-					return true
+					return CacheOpenableResult(itemID, true)
 				end
 
 				if LineText == LOCKED then
-					return true
+					return CacheOpenableResult(itemID, true)
 				end
 
 				if addon.DB.FilterToys and string.find(LineText, ITEM_TOY_ONUSE) then
-					return true
+					return CacheOpenableResult(itemID, true)
 				end
 
 				if addon.DB.FilterCompanion and string.find(LineText, 'companion') then
-					return true
+					return CacheOpenableResult(itemID, true)
 				end
 
 				if addon.DB.FilterKnowledge and (string.find(LineText, 'Knowledge') and string.find(LineText, 'Study to increase')) then
-					return true
+					return CacheOpenableResult(itemID, true)
 				end
 
 				if
 					addon.DB.FilterRepGain and (string.find(LineText, REP_USE_TEXT) or string.find(LineText, GetLocaleString('reputation towards')) or string.find(LineText, GetLocaleString('reputation with'))) and
 						string.find(LineText, ITEM_SPELL_TRIGGER_ONUSE)
 				 then
-					return true
+					return CacheOpenableResult(itemID, true)
 				end
 
 				if addon.DB.FilterMounts and (string.find(LineText, GetLocaleString('Use: Teaches you how to summon this mount')) or string.find(LineText, 'Drakewatcher Manuscript')) then
-					return true
+					return CacheOpenableResult(itemID, true)
 				end
 
 				if addon.DB.FilterGenericUse and string.find(LineText, ITEM_SPELL_TRIGGER_ONUSE) then
-					return true
+					return CacheOpenableResult(itemID, true)
 				end
 			end
 		end
@@ -208,14 +236,14 @@ local function CheckItem(itemDetails)
 				-- Search right side text too
 				for _, v in pairs(SearchItems) do
 					if string.find(RightLineText, v) then
-						return true
+						return CacheOpenableResult(itemID, true)
 					end
 				end
 
 				-- Check right side for containers
 				if addon.DB.FilterContainers and (string.find(RightLineText, 'Right [Cc]lick to open') or string.find(RightLineText, '<Right [Cc]lick to [Oo]pen>')) then
 					Log('Found container with right click text: ' .. RightLineText)
-					return true
+					return CacheOpenableResult(itemID, true)
 				end
 			end
 		end
@@ -226,54 +254,63 @@ local function CheckItem(itemDetails)
 		Log('Cache item tooltip scan complete: ' .. numLines .. ' total lines, no "Right click to open" found')
 	end
 
-	return false
+	return CacheOpenableResult(itemID, false)
 end
 
 -- Helper function to check if Baganator bags are visible
+-- Now simplified since we use frame hooks for timer management
 local function AreBagsVisible()
 	if not Baganator then
 		return false
 	end
-	
-	-- Check modern Baganator API first
-	if Baganator.Core and Baganator.Core.ViewManagement and Baganator.Core.ViewManagement.GetAllViews then
-		local views = Baganator.Core.ViewManagement.GetAllViews()
-		for _, view in pairs(views) do
-			if view:IsShown() then
+
+	-- List of all possible frame group suffixes (skins)
+	local frameGroups = {'blizzard', 'dark', 'elvui', 'gw2_ui', 'ndui', ''}
+
+	-- Check all possible Baganator bag frames directly
+	for _, frameGroup in ipairs(frameGroups) do
+		-- Check all frame types
+		local frameTypes = {
+			'Baganator_CategoryViewBackpackViewFrame',
+			'Baganator_SingleViewBackpackViewFrame',
+			'Baganator_CategoryViewBankViewFrame',
+			'Baganator_SingleViewBankViewFrame',
+			'Baganator_SingleViewGuildViewFrame'
+		}
+
+		for _, frameType in ipairs(frameTypes) do
+			local frame = _G[frameType .. frameGroup]
+			if frame and frame:IsVisible() then
 				return true
 			end
 		end
 	end
-	
-	-- Fallback checks for legacy frame names
-	if BaganatorBagView and BaganatorBagView:IsShown() then
-		return true
-	end
-	
-	if BaganatorBankView and BaganatorBankView:IsShown() then
-		return true
-	end
-	
-	-- Additional fallback - check for any visible Baganator frames
-	if Baganator.API and Baganator.API.IsViewVisible then
-		return Baganator.API.IsViewVisible()
-	end
-	
+
 	return false
 end
 
 -- Global animation update function - runs all frame animations
 local function GlobalAnimationUpdate()
-	-- Check if Baganator bags are visible before updating animations
+	-- Check if bags are still visible first
 	if not AreBagsVisible() then
 		Log('Bags not visible, stopping animation timer to save resources', 'debug')
-		StopGlobalTimer()
+		if globalAnimationTimer then
+			addon:CancelTimer(globalAnimationTimer)
+			globalAnimationTimer = nil
+		end
 		return
 	end
-	
+
 	for frame in pairs(animatingFrames) do
-		if frame.updateFunction then
-			frame.updateFunction()
+		local visible = frame:IsVisible()
+		if not visible then
+			-- Skip animation but don't remove frame - bags are still open, item might come back
+			Log('Frame not visible, skipping animation update', 'debug')
+		else
+			-- Frame is visible, run its animation
+			if frame.updateFunction then
+				frame.updateFunction()
+			end
 		end
 	end
 end
@@ -281,18 +318,12 @@ end
 -- Start global timer if not running
 local function StartGlobalTimer()
 	if not globalAnimationTimer then
-		-- Only start timer if bags are visible
-		if not AreBagsVisible() then
-			Log('Bags not visible, skipping animation timer start', 'debug')
-			return
-		end
-		
 		globalAnimationTimer = addon:ScheduleRepeatingTimer(GlobalAnimationUpdate, addon.DB.AnimationUpdateInterval)
 		local count = 0
 		for _ in pairs(animatingFrames) do
 			count = count + 1
 		end
-		Log('Started global animation timer for ' .. count .. ' frames (bags visible)')
+		Log('Started global animation timer for ' .. count .. ' frames')
 	end
 end
 
@@ -406,9 +437,13 @@ end
 
 -- Baganator Corner Widget Functions
 local function OnCornerWidgetInit(itemButton)
-	Log('OnCornerWidgetInit called for itemButton')
+	-- Log('OnCornerWidgetInit called for itemButton', 'debug')
 	local frame = CreateFrame('Frame', nil, itemButton)
-	frame:SetSize(35, 35)
+
+	-- Get parent size and use it for perfect alignment
+	local width = itemButton:GetWidth()
+	local height = itemButton:GetHeight()
+	frame:SetSize(width, height)
 
 	-- Create two textures for crossfading animation
 	local texture1 = frame:CreateTexture(nil, 'OVERLAY')
@@ -434,7 +469,6 @@ local function OnCornerWidgetInit(itemButton)
 	frame.texture3 = texture3
 	frame.texture = texture3 -- For compatibility, use static texture
 
-	Log('Corner widget frame created with dual textures')
 	return frame
 end
 
@@ -468,58 +502,64 @@ end
 -- Function to refresh all corner widgets after settings changes
 local function RefreshAllCornerWidgets()
 	-- Add a small delay to ensure settings are fully applied
-	addon:ScheduleTimer(function()
-		if not Baganator or not AreBagsVisible() then
-			Log('Baganator not available or bags not visible, skipping refresh')
-			return
-		end
-		
-		Log('Refreshing all corner widgets due to settings change')
-		
-		-- Try to trigger Baganator's corner widget refresh
-		if Baganator.API and Baganator.API.RequestItemButtonsRefresh then
-			-- Modern API method
-			Baganator.API.RequestItemButtonsRefresh()
-			Log('Requested item buttons refresh via API')
-		elseif Baganator.Core and Baganator.Core.ViewManagement then
-			-- Try to refresh all views
-			if Baganator.Core.ViewManagement.GetAllViews then
-				local views = Baganator.Core.ViewManagement.GetAllViews()
-				for _, view in pairs(views) do
-					if view:IsShown() and view.RefreshItems then
-						view:RefreshItems()
-						Log('Refreshed view via RefreshItems')
-					elseif view:IsShown() and view.UpdateView then
-						view:UpdateView()
-						Log('Refreshed view via UpdateView')
+	addon:ScheduleTimer(
+		function()
+			if not Baganator then
+				Log('Baganator not available, skipping refresh')
+				return
+			end
+
+			Log('Refreshing all corner widgets due to settings change')
+
+			-- Try to trigger Baganator's corner widget refresh
+			if Baganator.API and Baganator.API.RequestItemButtonsRefresh then
+				-- Modern API method
+				Baganator.API.RequestItemButtonsRefresh()
+				Log('Requested item buttons refresh via API')
+			elseif Baganator.Core and Baganator.Core.ViewManagement then
+				-- Try to refresh all views
+				if Baganator.Core.ViewManagement.GetAllViews then
+					local views = Baganator.Core.ViewManagement.GetAllViews()
+					for _, view in pairs(views) do
+						if view:IsShown() and view.RefreshItems then
+							view:RefreshItems()
+							Log('Refreshed view via RefreshItems')
+						elseif view:IsShown() and view.UpdateView then
+							view:UpdateView()
+							Log('Refreshed view via UpdateView')
+						end
 					end
 				end
+			else
+				-- Fallback: Force corner widget updates by clearing and re-evaluating animations
+				-- Stop all current animations first
+				for frame in pairs(animatingFrames) do
+					CleanupAnimation(frame)
+				end
+
+				-- Try to trigger a bag contents update event to force refresh
+				if Baganator and Baganator.API then
+					-- Try to trigger a refresh via event system
+					addon:ScheduleTimer(
+						function()
+							-- Force a BAG_UPDATE_DELAYED event which should refresh corner widgets
+							if Baganator.API.FireBagUpdateEvent then
+								Baganator.API.FireBagUpdateEvent()
+								Log('Triggered BAG_UPDATE event via API')
+							elseif Baganator.UnifiedBags and Baganator.UnifiedBags.RefreshBags then
+								Baganator.UnifiedBags.RefreshBags()
+								Log('Refreshed bags via UnifiedBags')
+							end
+						end,
+						0.05
+					)
+				end
+
+				Log('Cleared all animations, widgets will re-evaluate on next update cycle')
 			end
-		else
-			-- Fallback: Force corner widget updates by clearing and re-evaluating animations
-			-- Stop all current animations first
-			for frame in pairs(animatingFrames) do
-				CleanupAnimation(frame)
-			end
-			
-			-- Try to trigger a bag contents update event to force refresh
-			if Baganator and Baganator.API then
-				-- Try to trigger a refresh via event system
-				addon:ScheduleTimer(function()
-					-- Force a BAG_UPDATE_DELAYED event which should refresh corner widgets
-					if Baganator.API.FireBagUpdateEvent then
-						Baganator.API.FireBagUpdateEvent()
-						Log('Triggered BAG_UPDATE event via API')
-					elseif Baganator.UnifiedBags and Baganator.UnifiedBags.RefreshBags then
-						Baganator.UnifiedBags.RefreshBags()
-						Log('Refreshed bags via UnifiedBags')
-					end
-				end, 0.05)
-			end
-			
-			Log('Cleared all animations, widgets will re-evaluate on next update cycle')
-		end
-	end, 0.1)
+		end,
+		0.1
+	)
 end
 
 local function OnCornerWidgetUpdate(cornerFrame, itemDetails)
@@ -535,22 +575,34 @@ local function OnCornerWidgetUpdate(cornerFrame, itemDetails)
 		return false
 	end
 
-	Log('Checking item: ' .. (itemDetails.itemLink or 'unknown'))
+	Log('Checking item: ' .. (itemDetails.itemLink or 'unknown'), 'debug')
 	local isOpenable = CheckItem(itemDetails)
 	if isOpenable then
-		Log('Item is openable, showing animated textures')
-		-- Start animation if not already running
+		Log('Item is openable, showing animated textures', 'debug')
+		-- Always ensure animation is running for openable items
 		if not animatingFrames[cornerFrame] then
 			local success, errorMsg = pcall(AnimateTextures, cornerFrame)
 			if not success then
 				Log('ERROR starting animation: ' .. tostring(errorMsg))
+			end
+		else
+			-- Frame is already in animation table, but ensure it's actually animating
+			Log('Frame already in animation table, ensuring animation is active')
+			if not cornerFrame.updateFunction then
+				-- Animation was stopped but frame wasn't properly cleaned up
+				Log('Animation function missing, restarting animation')
+				CleanupAnimation(cornerFrame)
+				local success, errorMsg = pcall(AnimateTextures, cornerFrame)
+				if not success then
+					Log('ERROR restarting animation: ' .. tostring(errorMsg))
+				end
 			end
 		end
 		return true
 	else
 		-- Stop animation timer when hiding
 		CleanupAnimation(cornerFrame)
-		Log('Item is not openable, hiding widget')
+		Log('Item is not openable, hiding widget', 'debug')
 	end
 
 	return false
@@ -579,32 +631,52 @@ end
 
 function addon:OnInitialize()
 	Log('BaganatorOpenable addon initializing...')
-	-- Setup DB
-	self.DataBase = LibStub('AceDB-3.0'):New('BaganatorOpenableDB', {profile = profile}, true)
+	-- Setup DB with global cache
+	local defaults = {
+		profile = profile,
+		global = {
+			itemCache = {
+				openable = {}, -- itemID -> true for confirmed openable items
+				notOpenable = {} -- itemID -> true for confirmed non-openable items
+			}
+		}
+	}
+	self.DataBase = LibStub('AceDB-3.0'):New('BaganatorOpenableDB', defaults, true)
 	self.DB = self.DataBase.profile ---@type Profile
+	self.GlobalDB = self.DataBase.global
 	Log('Database initialized with ShowOpenableIndicator: ' .. tostring(self.DB.ShowOpenableIndicator))
 
 	-- Setup options panel
 	self:SetupOptions()
-	
-	-- Register events to restart animation when bags are opened
-	self:RegisterEvent('ADDON_LOADED')
 end
 
-function addon:ADDON_LOADED(event, addonName)
-	if addonName == 'Baganator' then
-		-- Hook into Baganator events if available
-		if Baganator and Baganator.CallbackRegistry then
-			Baganator.CallbackRegistry:RegisterCallback('BagShow', function()
-				-- Restart animation for any frames that should be animating when bags open
-				if next(animatingFrames) then
-					Log('Bags shown, restarting animation timer')
-					StartGlobalTimer()
-				end
-			end)
-		end
-		self:UnregisterEvent('ADDON_LOADED')
+function addon:OnEnable()
+	if not Baganator or not Baganator.API then
+		Log('Baganator not found or API not available, cannot register corner widget', 'error')
+		return
 	end
+
+	-- Hook Blizzard bag functions that Baganator also hooks
+	local function OnBagToggle()
+		Log('Blizzard bag function called - checking bag state after delay', 'warning')
+		addon:ScheduleTimer(
+			function()
+				if AreBagsVisible() then
+					Log('Bags are visible after Blizzard toggle - starting timer', 'warning')
+					StartGlobalTimer()
+				else
+					Log('Bags are hidden after Blizzard toggle - stopping timer', 'warning')
+					StopGlobalTimer()
+				end
+			end,
+			0.1
+		)
+	end
+
+	-- Hook the same functions Baganator hooks
+	hooksecurefunc('ToggleBackpack', OnBagToggle)
+	hooksecurefunc('ToggleBag', OnBagToggle)
+	hooksecurefunc('ToggleAllBags', OnBagToggle)
 end
 
 function addon:OnDisable()
