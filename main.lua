@@ -63,7 +63,7 @@ local function Log(msg, level)
 	if SUI and SUI.Log then
 		SUI.Log(tostring(msg), 'BaganatorOpenable', level or 'info')
 	else
-		print('BaganatorOpenable: ' .. tostring(msg))
+		-- print('BaganatorOpenable: ' .. tostring(msg))
 	end
 end
 
