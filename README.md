@@ -2,6 +2,10 @@
 
 Never miss another openable item! `Baganator: Openable` adds animated glowing effects to your Baganator bags, highlighting items that can be opened, used, or learned.
 
+![Fast](https://media.forgecdn.net/attachments/1324/797/open-fast-gif.gif)
+
+![Slow](https://media.forgecdn.net/attachments/1324/798/open-slow-gif.gif)
+
 ## Features
 
 - **Smart Detection** - Automatically identifies openable items including containers, toys, mounts, pets, appearances, and more
