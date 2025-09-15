@@ -4,6 +4,7 @@
 ## IconTexture: Interface/Addons/Baganator-Openable/Icon
 ## Version: 1.0.0
 ## X-Curse-Project-ID: 1347176
+## X-Wago-ID: b6mb29KP
 ## X-Github: https://github.com/Wutname1/Baganator-Openable
 ## Author: wutname1
 ## X-Category: Bags & Inventory
