@@ -188,7 +188,9 @@ local function CheckItem(itemDetails)
 
 				-- Remove (%s). from ITEM_CREATE_LOOT_SPEC_ITEM
 				local CreateItemString = ITEM_CREATE_LOOT_SPEC_ITEM:gsub(' %(%%s%)%.', '')
-				if addon.DB.CreatableItem and (string.find(LineText, CreateItemString) or string.find(LineText, 'Create a soulbound item for your class')) then
+				if
+					addon.DB.CreatableItem and (string.find(LineText, CreateItemString) or string.find(LineText, 'Create a soulbound item for your class') or string.find(LineText, 'item appropriate for your class'))
+				 then
 					return CacheOpenableResult(itemID, true)
 				end
 
