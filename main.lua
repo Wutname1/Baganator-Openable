@@ -854,16 +854,49 @@ local function GetOptions()
 				end,
 				order = 39
 			},
+			cacheHeader = {
+				type = 'header',
+				name = 'Cache Management',
+				order = 40
+			},
+			resetCache = {
+				type = 'execute',
+				name = 'Reset Item Cache',
+				desc = 'Clear all cached item openability data. Use this if items are incorrectly cached.',
+				func = function()
+					local openableCount = 0
+					local notOpenableCount = 0
+
+					-- Count items before clearing
+					for _ in pairs(addon.GlobalDB.itemCache.openable) do
+						openableCount = openableCount + 1
+					end
+					for _ in pairs(addon.GlobalDB.itemCache.notOpenable) do
+						notOpenableCount = notOpenableCount + 1
+					end
+
+					-- Clear cache
+					addon.GlobalDB.itemCache.openable = {}
+					addon.GlobalDB.itemCache.notOpenable = {}
+
+					Log('Cache reset: cleared ' .. openableCount .. ' openable items and ' .. notOpenableCount .. ' not openable items')
+					print('Baganator Openable: Cache reset - cleared ' .. (openableCount + notOpenableCount) .. ' cached items')
+
+					-- Refresh widgets to re-evaluate items
+					RefreshAllCornerWidgets()
+				end,
+				order = 41
+			},
 			animationHeader = {
 				type = 'header',
 				name = 'Animation Settings',
-				order = 40
+				order = 50
 			},
 			animationGroup = {
 				type = 'group',
 				name = 'Animation Timing',
 				inline = true,
-				order = 41,
+				order = 51,
 				args = {
 					cycleTime = {
 						type = 'range',
