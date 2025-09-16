@@ -735,6 +735,9 @@ local function GetOptions()
 				end,
 				set = function(_, value)
 					addon.DB.FilterToys = value
+					-- Reset cache since filter criteria changed
+					addon.GlobalDB.itemCache.openable = {}
+					addon.GlobalDB.itemCache.notOpenable = {}
 					RefreshAllCornerWidgets()
 				end,
 				order = 30
@@ -748,6 +751,9 @@ local function GetOptions()
 				end,
 				set = function(_, value)
 					addon.DB.FilterAppearance = value
+					-- Reset cache since filter criteria changed
+					addon.GlobalDB.itemCache.openable = {}
+					addon.GlobalDB.itemCache.notOpenable = {}
 					RefreshAllCornerWidgets()
 				end,
 				order = 31
@@ -761,6 +767,9 @@ local function GetOptions()
 				end,
 				set = function(_, value)
 					addon.DB.FilterMounts = value
+					-- Reset cache since filter criteria changed
+					addon.GlobalDB.itemCache.openable = {}
+					addon.GlobalDB.itemCache.notOpenable = {}
 					RefreshAllCornerWidgets()
 				end,
 				order = 32
@@ -774,6 +783,9 @@ local function GetOptions()
 				end,
 				set = function(_, value)
 					addon.DB.FilterCompanion = value
+					-- Reset cache since filter criteria changed
+					addon.GlobalDB.itemCache.openable = {}
+					addon.GlobalDB.itemCache.notOpenable = {}
 					RefreshAllCornerWidgets()
 				end,
 				order = 33
@@ -787,6 +799,9 @@ local function GetOptions()
 				end,
 				set = function(_, value)
 					addon.DB.FilterRepGain = value
+					-- Reset cache since filter criteria changed
+					addon.GlobalDB.itemCache.openable = {}
+					addon.GlobalDB.itemCache.notOpenable = {}
 					RefreshAllCornerWidgets()
 				end,
 				order = 34
@@ -800,6 +815,9 @@ local function GetOptions()
 				end,
 				set = function(_, value)
 					addon.DB.FilterCurios = value
+					-- Reset cache since filter criteria changed
+					addon.GlobalDB.itemCache.openable = {}
+					addon.GlobalDB.itemCache.notOpenable = {}
 					RefreshAllCornerWidgets()
 				end,
 				order = 35
@@ -813,6 +831,9 @@ local function GetOptions()
 				end,
 				set = function(_, value)
 					addon.DB.FilterContainers = value
+					-- Reset cache since filter criteria changed
+					addon.GlobalDB.itemCache.openable = {}
+					addon.GlobalDB.itemCache.notOpenable = {}
 					RefreshAllCornerWidgets()
 				end,
 				order = 36
@@ -826,6 +847,9 @@ local function GetOptions()
 				end,
 				set = function(_, value)
 					addon.DB.FilterKnowledge = value
+					-- Reset cache since filter criteria changed
+					addon.GlobalDB.itemCache.openable = {}
+					addon.GlobalDB.itemCache.notOpenable = {}
 					RefreshAllCornerWidgets()
 				end,
 				order = 37
@@ -839,6 +863,9 @@ local function GetOptions()
 				end,
 				set = function(_, value)
 					addon.DB.CreatableItem = value
+					-- Reset cache since filter criteria changed
+					addon.GlobalDB.itemCache.openable = {}
+					addon.GlobalDB.itemCache.notOpenable = {}
 					RefreshAllCornerWidgets()
 				end,
 				order = 38
@@ -852,6 +879,9 @@ local function GetOptions()
 				end,
 				set = function(_, value)
 					addon.DB.FilterGenericUse = value
+					-- Reset cache since filter criteria changed
+					addon.GlobalDB.itemCache.openable = {}
+					addon.GlobalDB.itemCache.notOpenable = {}
 					RefreshAllCornerWidgets()
 				end,
 				order = 39
