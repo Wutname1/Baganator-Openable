@@ -1,0 +1,5 @@
+ignore:
+  - "*.md"
+  - "*.definition.lua"
+
+enable-nolib-creation: no

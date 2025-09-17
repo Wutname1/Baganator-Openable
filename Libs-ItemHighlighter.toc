@@ -1,0 +1,29 @@
+## Interface: 110200
+## Title: Lib's - Item Highlighter
+## Notes: Highlights openable items in your bags - supports multiple bag addons
+## IconTexture: Interface/Addons/Baganator-Openable/Icon
+## Version: 2.0.0
+## X-Curse-Project-ID: 1347176
+## X-Wago-ID: b6mb29KP
+## X-Github: https://github.com/Wutname1/Baganator-Openable
+## Author: wutname1
+## X-Category: Bags & Inventory
+## SavedVariables: LibsIHDB
+## OptionalDependencies: Baganator, Bagnon, AdiBags, SpartanUI
+
+# Type definitions (LibsIH.definition.lua) are not packaged - for IDE support only
+
+# Required Ace3 libraries
+libs\Ace3\Ace3.xml
+
+# Core system
+Core\Core.lua
+Core\Animation.lua
+Core\Options.lua
+
+# Bag system integrations
+BagSystems\Baganator.lua
+BagSystems\Blizzard.lua
+
+# Main initialization
+main.lua
