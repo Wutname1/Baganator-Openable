@@ -1,6 +1,12 @@
-# Baganator: Openable
+# Lib's - Item Highlighter
 
-Never miss another openable item! `Baganator: Openable` adds animated glowing effects to your Baganator bags, highlighting items that can be opened, used, or learned.
+Never miss another openable item! `Lib's - Item Highlighter` adds animated glowing effects to your Baganator bags, highlighting items that can be opened, used, or learned.
+
+## Supported bag addons
+
+- Blizzard default bags
+- [Baganator](https://www.curseforge.com/wow/addons/baganator)
+- [BetterBags](https://www.curseforge.com/wow/addons/better-bags)
 
 ![Fast](https://media.forgecdn.net/attachments/1324/797/open-fast-gif.gif)
 
@@ -24,6 +30,4 @@ Never miss another openable item! `Baganator: Openable` adds animated glowing ef
 - Knowledge/Profession Items
 - Curios & Special Use Items
 
-Access configuration through Blizzard's Interface Options → AddOns → Baganator Openable.
-
-**Requires:** Baganator addon
+Access configuration through Blizzard's `Interface Options → AddOns → Lib's - Item Highlighter`
