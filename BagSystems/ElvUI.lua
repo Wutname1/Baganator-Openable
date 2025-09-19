@@ -59,7 +59,7 @@ end
 
 -- Function to update highlight widget based on item details
 local function UpdateHighlightWidget(itemButton)
-	if not itemButton or not addon.DB.ShowOpenableIndicator then
+	if not itemButton or (not addon.DB.ShowGlow and not addon.DB.ShowIndicator) then
 		return
 	end
 

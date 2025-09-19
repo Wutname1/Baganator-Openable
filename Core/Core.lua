@@ -20,7 +20,8 @@ local profile = {
 	FilterKnowledge = true,
 	FilterContainers = true,
 	CreatableItem = true,
-	ShowOpenableIndicator = true,
+	ShowGlow = true, -- Show animated blue-to-green glow
+	ShowIndicator = true, -- Show static treasure map icon
 	-- Animation Settings
 	AnimationCycleTime = 0.5,
 	TimeBetweenCycles = 0.10,
@@ -319,7 +320,7 @@ function addon:OnInitialize()
 	self.DataBase = LibStub('AceDB-3.0'):New('LibsIHDB', defaults, true) ---@type LibsIH.DB
 	self.DB = self.DataBase.profile
 	self.GlobalDB = self.DataBase.global
-	Log('Database initialized with ShowOpenableIndicator: ' .. tostring(self.DB.ShowOpenableIndicator))
+	Log('Database initialized with ShowGlow: ' .. tostring(self.DB.ShowGlow) .. ', ShowIndicator: ' .. tostring(self.DB.ShowIndicator))
 
 	-- Setup options panel
 	self:SetupOptions()

@@ -55,7 +55,7 @@ end
 
 -- Update indicator for a specific bag slot
 local function UpdateSlotIndicator(button)
-	if not addon.DB.ShowOpenableIndicator then
+	if not addon.DB.ShowGlow and not addon.DB.ShowIndicator then
 		if indicatorFrames[button] then
 			root.Animation.CleanupAnimation(indicatorFrames[button])
 			indicatorFrames[button]:Hide()

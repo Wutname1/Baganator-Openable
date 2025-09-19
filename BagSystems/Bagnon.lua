@@ -77,8 +77,8 @@ end
 -- Main updater function called by Bagnon for each item button
 -- This follows the exact pattern from Bagnon_BoE and other Bagnon plugins
 local function BagnonItemUpdater(itemButton)
-	-- Early exit if highlighting is disabled
-	if not addon.DB.ShowOpenableIndicator then
+	-- Early exit if all highlighting features are disabled
+	if not addon.DB.ShowGlow and not addon.DB.ShowIndicator then
 		-- Hide any existing widget
 		local widget = itemButtonWidgets[itemButton]
 		if widget then

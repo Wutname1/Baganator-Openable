@@ -142,7 +142,7 @@ local function HookBetterBagsItemButtons()
 		-- Hook the SetItem method which is called for all item button updates
 		if ItemFrame.itemProto.SetItem then
 			hooksecurefunc(ItemFrame.itemProto, 'SetItem', function(self, ctx, slotkey)
-				if self and slotkey and addon.DB.ShowOpenableIndicator then
+				if self and slotkey and (addon.DB.ShowGlow or addon.DB.ShowIndicator) then
 					-- BetterBags uses underscore format: "bagID_slotID"
 					local bagID, slotID = slotkey:match("^(%d+)_(%d+)$")
 					if bagID and slotID then
@@ -168,7 +168,7 @@ local function HookBetterBagsItemButtons()
 		-- Also hook SetItemFromData for completeness
 		if ItemFrame.itemProto.SetItemFromData then
 			hooksecurefunc(ItemFrame.itemProto, 'SetItemFromData', function(self, ctx, data)
-				if self and data and addon.DB.ShowOpenableIndicator then
+				if self and data and (addon.DB.ShowGlow or addon.DB.ShowIndicator) then
 					-- Get itemLink from container if not provided in data
 					local itemLink = data.itemLink
 					if not itemLink and data.bagid and data.slotid then

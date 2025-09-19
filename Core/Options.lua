@@ -8,15 +8,9 @@ local function GetOptions()
 		name = "Lib's - Item Highlighter",
 		type = 'group',
 		args = {
-			header = {
-				type = 'description',
-				name = "Lib's - Item Highlighter Settings\n",
-				fontSize = 'large',
-				order = 1
-			},
 			bagSystemHeader = {
 				type = 'header',
-				name = 'Bag System',
+				name = 'General Settings',
 				order = 5
 			},
 			bagSystemSelect = {
@@ -43,22 +37,39 @@ local function GetOptions()
 				end,
 				order = 6
 			},
-			showIndicator = {
+			showGlow = {
 				type = 'toggle',
-				name = 'Show Openable Indicator',
-				desc = 'Display animated corner widget on openable items',
+				name = 'Show Glow Animation',
+				desc = 'Display animated blue-to-green glow effect on openable items',
 				get = function()
-					return addon.DB.ShowOpenableIndicator
+					return addon.DB.ShowGlow
 				end,
 				set = function(_, value)
-					addon.DB.ShowOpenableIndicator = value
-					-- Refresh all widgets when indicator is toggled
+					addon.DB.ShowGlow = value
+					-- Refresh all widgets when glow is toggled
 					local bagSystem = addon:GetActiveBagSystem()
 					if bagSystem and bagSystem.RefreshAllCornerWidgets then
 						bagSystem.RefreshAllCornerWidgets()
 					end
 				end,
 				order = 10
+			},
+			showIndicator = {
+				type = 'toggle',
+				name = 'Show Indicator Icon',
+				desc = 'Display static treasure map icon on openable items',
+				get = function()
+					return addon.DB.ShowIndicator
+				end,
+				set = function(_, value)
+					addon.DB.ShowIndicator = value
+					-- Refresh all widgets when indicator is toggled
+					local bagSystem = addon:GetActiveBagSystem()
+					if bagSystem and bagSystem.RefreshAllCornerWidgets then
+						bagSystem.RefreshAllCornerWidgets()
+					end
+				end,
+				order = 11
 			},
 			filterHeader = {
 				type = 'header',

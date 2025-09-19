@@ -230,23 +230,26 @@ local function CreateIndicatorFrame(parent)
 	-- Anchor the frame to completely cover the parent item button
 	frame:SetAllPoints(parent)
 
-	-- Create two textures for crossfading animation
+	-- Create two textures for crossfading glow animation
 	local texture1 = frame:CreateTexture(nil, 'OVERLAY')
 	texture1:SetAllPoints(frame)
 	texture1:SetAtlas('bags-glow-blue')
-	texture1:SetAlpha(1) -- Start fully visible
+	texture1:SetAlpha(1) -- Start fully visible for animation
+	texture1:Hide() -- Initially hidden, shown when glow is enabled
 
 	local texture2 = frame:CreateTexture(nil, 'OVERLAY')
 	texture2:SetAllPoints(frame)
 	texture2:SetAtlas('bags-glow-green')
-	texture2:SetAlpha(0) -- Start invisible
+	texture2:SetAlpha(0) -- Start invisible for animation
+	texture2:Hide() -- Initially hidden, shown when glow is enabled
 
-	-- Third static texture for debugging
+	-- Static indicator icon texture
 	local texture3 = frame:CreateTexture(nil, 'OVERLAY')
 	texture3:SetPoint('TOPRIGHT', frame, 'TOPRIGHT', 0, 0)
 	texture3:SetAtlas('ShipMissionIcon-Treasure-Map')
 	texture3:SetSize(20, 20)
-	texture3:SetAlpha(1) -- Always visible
+	texture3:SetAlpha(1) -- Always full alpha when visible
+	texture3:Hide() -- Initially hidden, shown when indicator is enabled
 
 	-- Store all textures
 	frame.texture1 = texture1
@@ -262,9 +265,11 @@ end
 ---@param itemDetails table Item details
 ---@return boolean visible True if indicator should be visible
 local function UpdateIndicatorFrame(frame, itemDetails)
-	if not addon.DB.ShowOpenableIndicator then
-		Log('ShowOpenableIndicator is disabled, hiding widget')
+	-- Check if any indicator features are enabled
+	if not addon.DB.ShowGlow and not addon.DB.ShowIndicator then
+		Log('All indicator features disabled, hiding widget')
 		CleanupAnimation(frame)
+		frame:Hide()
 		return false
 	end
 
@@ -277,28 +282,53 @@ local function UpdateIndicatorFrame(frame, itemDetails)
 	Log('Checking item: ' .. (itemDetails.itemLink or 'unknown'), 'debug')
 	local isOpenable = root.CheckItem(itemDetails)
 	if isOpenable then
-		Log('Item is openable, showing animated textures', 'debug')
-		-- Ensure frame is visible for openable items
+		Log('Item is openable, configuring display elements', 'debug')
+
+		-- Always show frame if any feature is enabled for openable items
 		frame:Show()
-		-- Always ensure animation is running for openable items
-		if not animatingFrames[frame] then
-			local success, errorMsg = pcall(AnimateTextures, frame)
-			if not success then
-				Log('ERROR starting animation: ' .. tostring(errorMsg))
-			end
-		else
-			-- Frame is already in animation table, but ensure it's actually animating
-			Log('Frame already in animation table, ensuring animation is active')
-			if not frame.updateFunction then
-				-- Animation was stopped but frame wasn't properly cleaned up
-				Log('Animation function missing, restarting animation')
-				CleanupAnimation(frame)
+
+		-- Handle glow animation (texture1 and texture2)
+		if addon.DB.ShowGlow then
+			Log('Showing glow animation', 'debug')
+			-- Show glow textures
+			if frame.texture1 then frame.texture1:Show() end
+			if frame.texture2 then frame.texture2:Show() end
+
+			-- Ensure animation is running for glow effect
+			if not animatingFrames[frame] then
 				local success, errorMsg = pcall(AnimateTextures, frame)
 				if not success then
-					Log('ERROR restarting animation: ' .. tostring(errorMsg))
+					Log('ERROR starting glow animation: ' .. tostring(errorMsg))
+				end
+			else
+				-- Frame is already in animation table, but ensure it's actually animating
+				if not frame.updateFunction then
+					Log('Glow animation function missing, restarting animation')
+					CleanupAnimation(frame)
+					local success, errorMsg = pcall(AnimateTextures, frame)
+					if not success then
+						Log('ERROR restarting glow animation: ' .. tostring(errorMsg))
+					end
 				end
 			end
+		else
+			-- Hide glow textures if glow is disabled
+			if frame.texture1 then frame.texture1:Hide() end
+			if frame.texture2 then frame.texture2:Hide() end
+			CleanupAnimation(frame)
 		end
+
+		-- Handle indicator icon (texture3)
+		if frame.texture3 then
+			if addon.DB.ShowIndicator then
+				Log('Showing indicator icon', 'debug')
+				frame.texture3:Show()
+			else
+				Log('Hiding indicator icon', 'debug')
+				frame.texture3:Hide()
+			end
+		end
+
 		return true
 	else
 		-- Stop animation timer and hide frame for non-openable items
