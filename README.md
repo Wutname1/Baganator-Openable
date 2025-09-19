@@ -10,9 +10,9 @@ Never miss another openable item! `Lib's - Item Highlighter` adds animated glowi
 - [BetterBags](https://www.curseforge.com/wow/addons/better-bags)
 - [ElvUI](https://tukui.org/)
 
-![Fast](https://media.forgecdn.net/attachments/1324/797/open-fast-gif.gif)
+![Fast](https://media.forgecdn.net/attachments/1328/644/flash-gif.gif)
 
-![Slow](https://media.forgecdn.net/attachments/1324/798/open-slow-gif.gif)
+![Slow](https://media.forgecdn.net/attachments/1328/645/fade-gif.gif)
 
 ## Features
 
