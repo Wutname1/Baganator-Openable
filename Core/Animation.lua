@@ -18,10 +18,21 @@ end
 
 -- Global animation update function - runs all frame animations
 local function GlobalAnimationUpdate()
-	-- Check if we have a way to determine if bags are visible
-	local bagSystem = addon:GetActiveBagSystem()
-	if bagSystem and bagSystem.AreBagsVisible and not bagSystem:AreBagsVisible() then
-		Log('Bags not visible, stopping animation timer to save resources', 'debug')
+	-- Check if ANY active bag system has visible bags
+	local anyBagsVisible = false
+	local availableSystems = addon:GetAllAvailableBagSystems()
+
+	for _, systemData in ipairs(availableSystems) do
+		local integration = systemData.integration
+		if integration.AreBagsVisible and integration:AreBagsVisible() then
+			anyBagsVisible = true
+			Log('Found visible bags in system: ' .. systemData.name, 'debug')
+			break
+		end
+	end
+
+	if not anyBagsVisible then
+		Log('No bags visible in any system, stopping animation timer to save resources', 'debug')
 		if globalAnimationTimer then
 			addon:CancelTimer(globalAnimationTimer)
 			globalAnimationTimer = nil
@@ -267,6 +278,8 @@ local function UpdateIndicatorFrame(frame, itemDetails)
 	local isOpenable = root.CheckItem(itemDetails)
 	if isOpenable then
 		Log('Item is openable, showing animated textures', 'debug')
+		-- Ensure frame is visible for openable items
+		frame:Show()
 		-- Always ensure animation is running for openable items
 		if not animatingFrames[frame] then
 			local success, errorMsg = pcall(AnimateTextures, frame)
@@ -288,8 +301,9 @@ local function UpdateIndicatorFrame(frame, itemDetails)
 		end
 		return true
 	else
-		-- Stop animation timer when hiding
+		-- Stop animation timer and hide frame for non-openable items
 		CleanupAnimation(frame)
+		frame:Hide()
 		Log('Item is not openable, hiding widget', 'debug')
 	end
 

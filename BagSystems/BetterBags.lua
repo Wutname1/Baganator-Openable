@@ -69,19 +69,23 @@ function BetterBagsIntegration:AreBagsVisible()
 		-- Check if Backpack bag is visible (calls IsShown() method)
 		if betterBagsAddon.Bags.Backpack and type(betterBagsAddon.Bags.Backpack.IsShown) == "function" then
 			local backpackVisible = betterBagsAddon.Bags.Backpack:IsShown()
-			Log('BetterBags Backpack visibility: ' .. tostring(backpackVisible), 'debug')
+			Log('BetterBags Backpack visibility: ' .. tostring(backpackVisible), 'info')
 			if backpackVisible then
 				return true
 			end
+		else
+			Log('BetterBags Backpack not available or no IsShown method', 'info')
 		end
 
 		-- Check if Bank bag is visible (calls IsShown() method)
 		if betterBagsAddon.Bags.Bank and type(betterBagsAddon.Bags.Bank.IsShown) == "function" then
 			local bankVisible = betterBagsAddon.Bags.Bank:IsShown()
-			Log('BetterBags Bank visibility: ' .. tostring(bankVisible), 'debug')
+			Log('BetterBags Bank visibility: ' .. tostring(bankVisible), 'info')
 			if bankVisible then
 				return true
 			end
+		else
+			Log('BetterBags Bank not available or no IsShown method', 'info')
 		end
 	end
 
@@ -247,8 +251,8 @@ function BetterBagsIntegration:OnEnable()
 	HookBetterBagsItemButtons()
 
 	-- Hook Blizzard bag functions that might open BetterBags
-	local function OnBagToggle()
-		Log('Blizzard bag function called - checking bag state after delay')
+	local function OnBagToggle(source)
+		Log('Bag toggle called from: ' .. (source or 'unknown') .. ' - checking bag state after delay')
 		addon:ScheduleTimer(function()
 			if self:AreBagsVisible() then
 				Log('Bags are visible after Blizzard toggle - starting timer')
@@ -282,28 +286,28 @@ function BetterBagsIntegration:OnEnable()
 			-- Hook bag show/hide events
 			Events:RegisterMessage('bags/OpenClose', function()
 				Log('BetterBags bags/OpenClose event fired')
-				OnBagToggle()
+				OnBagToggle('BetterBags-Event')
 			end)
 			Log('Registered for BetterBags bags/OpenClose events')
 		end
 	end
 
 	-- Hook the same functions that might trigger BetterBags
-	hooksecurefunc('ToggleBackpack', OnBagToggle)
-	hooksecurefunc('ToggleBag', OnBagToggle)
-	hooksecurefunc('ToggleAllBags', OnBagToggle)
+	hooksecurefunc('ToggleBackpack', function() OnBagToggle('ToggleBackpack') end)
+	hooksecurefunc('ToggleBag', function() OnBagToggle('ToggleBag') end)
+	hooksecurefunc('ToggleAllBags', function() OnBagToggle('ToggleAllBags') end)
 
 	-- Hook BetterBags specific functions (reuse existing betterBagsAddon)
 	if success and betterBagsAddon then
 		-- Hook the main BetterBags toggle method
 		if betterBagsAddon.ToggleAllBags then
-			hooksecurefunc(betterBagsAddon, 'ToggleAllBags', OnBagToggle)
+			hooksecurefunc(betterBagsAddon, 'ToggleAllBags', function() OnBagToggle('BetterBags-ToggleAllBags') end)
 			Log('Hooked BetterBags ToggleAllBags method')
 		end
 
 		-- Hook global BetterBags toggle function if it exists
 		if _G.BetterBags_ToggleBags then
-			hooksecurefunc('BetterBags_ToggleBags', OnBagToggle)
+			hooksecurefunc('BetterBags_ToggleBags', function() OnBagToggle('BetterBags_ToggleBags') end)
 			Log('Hooked BetterBags_ToggleBags global function')
 		end
 	end

@@ -79,12 +79,6 @@ local function Log(msg, level)
 	if logger then
 		-- Use registered SpartanUI logger
 		logger(tostring(msg), level or 'info')
-	elseif SUI and SUI.Log then
-		-- Fallback to direct SUI.Log for backwards compatibility
-		SUI.Log(tostring(msg), 'LibsIH', level or 'info')
-	else
-		-- Fallback to print if SpartanUI is not available
-		print('LibsIH: ' .. tostring(msg))
 	end
 end
 
@@ -346,9 +340,12 @@ function addon:OnEnable()
 
 			Log('Enabling bag system: ' .. name)
 			if integration.OnEnable then
-				local success, error = pcall(function()
-					integration:OnEnable()
-				end)
+				local success, error =
+					pcall(
+					function()
+						integration:OnEnable()
+					end
+				)
 
 				if success then
 					table.insert(self.enabledBagSystems, integration)
@@ -378,9 +375,12 @@ function addon:OnDisable()
 	if self.enabledBagSystems then
 		for _, integration in ipairs(self.enabledBagSystems) do
 			if integration.OnDisable then
-				local success, error = pcall(function()
-					integration:OnDisable()
-				end)
+				local success, error =
+					pcall(
+					function()
+						integration:OnDisable()
+					end
+				)
 
 				if not success then
 					Log('Error disabling bag system integration: ' .. tostring(error), 'error')

@@ -132,14 +132,34 @@ local function HookElvUIBagSystem()
 	-- Hook slot updates when bags are refreshed
 	if B.UpdateBagSlots then
 		hooksecurefunc(B, 'UpdateBagSlots', function(self, frame, bagID)
-			if frame and frame.Bags and frame.Bags[bagID] then
-				for slotID, slot in pairs(frame.Bags[bagID]) do
-					if slot and slot.itemLink then
-						slot.bagID = bagID
-						slot.slotID = slotID
-						UpdateHighlightWidget(slot)
+			local success, result = pcall(function()
+				if frame and frame.Bags and frame.Bags[bagID] then
+					for slotID, slot in pairs(frame.Bags[bagID]) do
+						-- Check if slot is a frame object with GetBagID/GetID methods (ElvUI pattern)
+						if slot and type(slot) == 'table' and slot.GetBagID and slot.GetID then
+							local bagId = slot:GetBagID()
+							local slotId = slot:GetID()
+							local itemLink = C_Container.GetContainerItemLink(bagId, slotId)
+
+							if itemLink then
+								local itemData = {
+									bagID = bagId,
+									slotID = slotId,
+									itemLink = itemLink
+								}
+								UpdateHighlightWidget(slot, itemData)
+							end
+						elseif slot and type(slot) == 'table' and slot.itemLink then
+							-- Fallback for table-based slots
+							slot.bagID = bagID
+							slot.slotID = slotID
+							UpdateHighlightWidget(slot)
+						end
 					end
 				end
+			end)
+			if not success then
+				Log('ElvUI UpdateBagSlots hook error (non-critical): ' .. tostring(result), 'debug')
 			end
 		end)
 		Log('Hooked ElvUI B:UpdateBagSlots')
@@ -148,20 +168,40 @@ local function HookElvUIBagSystem()
 	-- Hook the broader UpdateAllSlots function
 	if B.UpdateAllSlots then
 		hooksecurefunc(B, 'UpdateAllSlots', function(self, frame)
-			if not frame or not frame.Bags then
-				return
-			end
+			local success, result = pcall(function()
+				if not frame or not frame.Bags then
+					return
+				end
 
-			for bagID, bag in pairs(frame.Bags) do
-				if bag then
-					for slotID, slot in pairs(bag) do
-						if slot and slot.itemLink then
-							slot.bagID = bagID
-							slot.slotID = slotID
-							UpdateHighlightWidget(slot)
+				for bagID, bag in pairs(frame.Bags) do
+					if bag then
+						for slotID, slot in pairs(bag) do
+							-- Check if slot is a frame object with GetBagID/GetID methods (ElvUI pattern)
+							if slot and type(slot) == 'table' and slot.GetBagID and slot.GetID then
+								local bagId = slot:GetBagID()
+								local slotId = slot:GetID()
+								local itemLink = C_Container.GetContainerItemLink(bagId, slotId)
+
+								if itemLink then
+									local itemData = {
+										bagID = bagId,
+										slotID = slotId,
+										itemLink = itemLink
+									}
+									UpdateHighlightWidget(slot, itemData)
+								end
+							elseif slot and type(slot) == 'table' and slot.itemLink then
+								-- Fallback for table-based slots
+								slot.bagID = bagID
+								slot.slotID = slotID
+								UpdateHighlightWidget(slot)
+							end
 						end
 					end
 				end
+			end)
+			if not success then
+				Log('ElvUI UpdateAllSlots hook error (non-critical): ' .. tostring(result), 'debug')
 			end
 		end)
 		Log('Hooked ElvUI B:UpdateAllSlots')
