@@ -1,0 +1,321 @@
+local addonName, root = ... --[[@type string, table]]
+local addon = root.Core
+local Log = root.Log
+
+---@class BetterBagsIntegration
+local BetterBagsIntegration = {
+	name = 'BetterBags'
+}
+
+-- Check if BetterBags is available
+function BetterBagsIntegration:IsAvailable()
+	Log('BetterBags IsAvailable check starting', 'info')
+
+	-- Check if LibStub is available first
+	if not LibStub then
+		Log('LibStub not found - cannot check for BetterBags', 'info')
+		return false
+	end
+
+	-- Try to get BetterBags addon directly (same pattern as working BetterBags plugins)
+	local success, betterBagsAddon = pcall(function()
+		return LibStub('AceAddon-3.0'):GetAddon('BetterBags')
+	end)
+
+	if not success then
+		Log('Failed to get BetterBags addon via LibStub: ' .. tostring(betterBagsAddon), 'info')
+		return false
+	end
+
+	if not betterBagsAddon then
+		Log('BetterBags addon object is nil', 'info')
+		return false
+	end
+
+	Log('BetterBags addon object found successfully', 'info')
+
+	-- Test if we can access the GetModule method (AceAddon pattern)
+	local hasGetModule = betterBagsAddon.GetModule ~= nil
+	Log('BetterBags GetModule availability: ' .. tostring(hasGetModule), 'info')
+
+	-- Also check if we can access a known module to verify functionality
+	if hasGetModule then
+		local moduleSuccess, itemFrame = pcall(function()
+			return betterBagsAddon:GetModule('ItemFrame')
+		end)
+		Log('BetterBags ItemFrame module test: ' .. tostring(moduleSuccess), 'info')
+
+		if moduleSuccess and itemFrame then
+			Log('BetterBags is available and ready for integration', 'info')
+			return true
+		else
+			Log('BetterBags found but modules not accessible', 'info')
+			return false
+		end
+	else
+		Log('BetterBags found but GetModule method missing', 'info')
+		return false
+	end
+end
+
+-- Helper function to check if BetterBags frames are visible
+function BetterBagsIntegration:AreBagsVisible()
+	-- Try to access the main BetterBags addon to check bag visibility
+	local success, betterBagsAddon = pcall(function()
+		return LibStub('AceAddon-3.0'):GetAddon('BetterBags')
+	end)
+
+	if success and betterBagsAddon and betterBagsAddon.Bags then
+		-- Check if Backpack bag is visible (calls IsShown() method)
+		if betterBagsAddon.Bags.Backpack and type(betterBagsAddon.Bags.Backpack.IsShown) == "function" then
+			local backpackVisible = betterBagsAddon.Bags.Backpack:IsShown()
+			Log('BetterBags Backpack visibility: ' .. tostring(backpackVisible), 'debug')
+			if backpackVisible then
+				return true
+			end
+		end
+
+		-- Check if Bank bag is visible (calls IsShown() method)
+		if betterBagsAddon.Bags.Bank and type(betterBagsAddon.Bags.Bank.IsShown) == "function" then
+			local bankVisible = betterBagsAddon.Bags.Bank:IsShown()
+			Log('BetterBags Bank visibility: ' .. tostring(bankVisible), 'debug')
+			if bankVisible then
+				return true
+			end
+		end
+	end
+
+	Log('No BetterBags frames visible', 'debug')
+	return false
+end
+
+-- Store item button widgets that we've created
+local itemButtonWidgets = {}
+
+-- Function to create our highlight widget on an item button
+local function CreateHighlightWidget(itemButton)
+	if not itemButton or itemButtonWidgets[itemButton] then
+		return itemButtonWidgets[itemButton]
+	end
+
+	local widget = root.Animation.CreateIndicatorFrame(itemButton)
+	itemButtonWidgets[itemButton] = widget
+	return widget
+end
+
+-- Function to update highlight widget based on item data
+local function UpdateHighlightWidget(itemButton, itemData)
+	if not itemButton or not itemData then
+		return
+	end
+
+	local widget = itemButtonWidgets[itemButton]
+	if not widget then
+		widget = CreateHighlightWidget(itemButton)
+	end
+
+	-- Convert BetterBags itemData to our expected format
+	local itemDetails = {
+		itemLink = itemData.itemLink,
+		bagID = itemData.bagID or itemData.bagid,  -- Handle both cases
+		slotID = itemData.slotID or itemData.slotid  -- Handle both cases
+	}
+
+	root.Animation.UpdateIndicatorFrame(widget, itemDetails)
+end
+
+-- Function to hook into BetterBags item button creation and updates
+local function HookBetterBagsItemButtons()
+	-- Try to hook the ItemFrame module that handles SetItem calls
+	local success, ItemFrame = pcall(function()
+		local betterBagsAddon = LibStub('AceAddon-3.0'):GetAddon('BetterBags')
+		return betterBagsAddon:GetModule('ItemFrame')
+	end)
+
+	if success and ItemFrame and ItemFrame.itemProto then
+		Log('Found BetterBags ItemFrame module')
+
+		-- Hook the SetItem method which is called for all item button updates
+		if ItemFrame.itemProto.SetItem then
+			hooksecurefunc(ItemFrame.itemProto, 'SetItem', function(self, ctx, slotkey)
+				if self and slotkey and addon.DB.ShowOpenableIndicator then
+					-- BetterBags uses underscore format: "bagID_slotID"
+					local bagID, slotID = slotkey:match("^(%d+)_(%d+)$")
+					if bagID and slotID then
+						local numBagID = tonumber(bagID)
+						local numSlotID = tonumber(slotID)
+						local itemLink = C_Container.GetContainerItemLink(numBagID, numSlotID)
+
+						-- Only process if we have an actual item (itemLink exists)
+						if itemLink then
+							local itemData = {
+								bagID = numBagID,
+								slotID = numSlotID,
+								itemLink = itemLink
+							}
+							UpdateHighlightWidget(self.button or self.frame, itemData)
+						end
+					end
+				end
+			end)
+			Log('Hooked BetterBags ItemFrame SetItem')
+		end
+
+		-- Also hook SetItemFromData for completeness
+		if ItemFrame.itemProto.SetItemFromData then
+			hooksecurefunc(ItemFrame.itemProto, 'SetItemFromData', function(self, ctx, data)
+				if self and data and addon.DB.ShowOpenableIndicator then
+					-- Get itemLink from container if not provided in data
+					local itemLink = data.itemLink
+					if not itemLink and data.bagid and data.slotid then
+						itemLink = C_Container.GetContainerItemLink(data.bagid, data.slotid)
+					end
+
+					-- Only process if we have an actual item
+					if itemLink then
+						local itemData = {
+							bagID = data.bagid,
+							slotID = data.slotid,
+							itemLink = itemLink
+						}
+						UpdateHighlightWidget(self.button or self.frame, itemData)
+					end
+				end
+			end)
+			Log('Hooked BetterBags ItemFrame SetItemFromData')
+		end
+	else
+		Log('Failed to find BetterBags ItemFrame module', 'warning')
+	end
+end
+
+-- Function to refresh all widgets after settings changes
+local function RefreshAllWidgets()
+	addon:ScheduleTimer(function()
+		if not BetterBags then
+			Log('BetterBags not available, skipping refresh')
+			return
+		end
+
+		Log('Refreshing all BetterBags widgets due to settings change')
+
+		-- Clear existing widgets
+		for itemButton, widget in pairs(itemButtonWidgets) do
+			if widget and widget:IsShown() then
+				widget:Hide()
+			end
+		end
+		wipe(itemButtonWidgets)
+
+		-- Force BetterBags to refresh by triggering bag updates
+		local success, betterBagsAddon = pcall(function()
+			return LibStub('AceAddon-3.0'):GetAddon('BetterBags')
+		end)
+
+		if success and betterBagsAddon and betterBagsAddon.Bags then
+			-- Trigger a refresh on the visible bags
+			if betterBagsAddon.Bags.Backpack and betterBagsAddon.Bags.Backpack.IsShown and betterBagsAddon.Bags.Backpack:IsShown() then
+				-- Force a redraw by simulating bag updates
+				local Events = betterBagsAddon:GetModule('Events')
+				if Events and Events.SendMessage then
+					local Context = betterBagsAddon:GetModule('Context')
+					if Context then
+						local ctx = Context:New('RefreshAllWidgets')
+						Events:SendMessage(ctx, 'bags/FullRefreshAll')
+					end
+				end
+			end
+			Log('Triggered BetterBags bag refresh')
+		end
+
+		-- Also try to trigger a general bag update
+		addon:ScheduleTimer(function()
+			addon:SendMessage("BAG_UPDATE_DELAYED")
+		end, 0.1)
+	end, 0.1)
+end
+
+function BetterBagsIntegration:OnEnable()
+	if not self:IsAvailable() then
+		Log('BetterBags not available during OnEnable', 'warning')
+		return
+	end
+
+	Log('BetterBags integration enabled')
+
+	-- Set up hooks for item button updates
+	HookBetterBagsItemButtons()
+
+	-- Hook Blizzard bag functions that might open BetterBags
+	local function OnBagToggle()
+		Log('Blizzard bag function called - checking bag state after delay')
+		addon:ScheduleTimer(function()
+			if self:AreBagsVisible() then
+				Log('Bags are visible after Blizzard toggle - starting timer')
+				root.Animation.StartGlobalTimer()
+			else
+				Log('Bags are hidden after Blizzard toggle - stopping timer')
+				root.Animation.StopGlobalTimer()
+			end
+		end, 0.1)
+	end
+
+	-- Hook into BetterBags events for bag visibility changes
+	addon:RegisterMessage("BAG_UPDATE_DELAYED", function()
+		if self:AreBagsVisible() then
+			Log('Bags are visible - starting timer')
+			root.Animation.StartGlobalTimer()
+		else
+			Log('Bags are hidden - stopping timer')
+			root.Animation.StopGlobalTimer()
+		end
+	end)
+
+	-- Try to hook BetterBags internal events for bag open/close
+	local success, betterBagsAddon = pcall(function()
+		return LibStub('AceAddon-3.0'):GetAddon('BetterBags')
+	end)
+
+	if success and betterBagsAddon then
+		local Events = betterBagsAddon:GetModule('Events')
+		if Events and Events.RegisterMessage then
+			-- Hook bag show/hide events
+			Events:RegisterMessage('bags/OpenClose', function()
+				Log('BetterBags bags/OpenClose event fired')
+				OnBagToggle()
+			end)
+			Log('Registered for BetterBags bags/OpenClose events')
+		end
+	end
+
+	-- Hook the same functions that might trigger BetterBags
+	hooksecurefunc('ToggleBackpack', OnBagToggle)
+	hooksecurefunc('ToggleBag', OnBagToggle)
+	hooksecurefunc('ToggleAllBags', OnBagToggle)
+
+	-- Hook BetterBags specific functions (reuse existing betterBagsAddon)
+	if success and betterBagsAddon then
+		-- Hook the main BetterBags toggle method
+		if betterBagsAddon.ToggleAllBags then
+			hooksecurefunc(betterBagsAddon, 'ToggleAllBags', OnBagToggle)
+			Log('Hooked BetterBags ToggleAllBags method')
+		end
+
+		-- Hook global BetterBags toggle function if it exists
+		if _G.BetterBags_ToggleBags then
+			hooksecurefunc('BetterBags_ToggleBags', OnBagToggle)
+			Log('Hooked BetterBags_ToggleBags global function')
+		end
+	end
+end
+
+function BetterBagsIntegration:OnDisable()
+	Log('BetterBags integration disabling')
+	root.Animation.StopGlobalTimer()
+end
+
+-- Store refresh function for options
+BetterBagsIntegration.RefreshAllWidgets = RefreshAllWidgets
+
+-- Register this bag system
+addon:RegisterBagSystem('betterbags', BetterBagsIntegration)

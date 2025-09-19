@@ -9,7 +9,7 @@
 ## Author: wutname1
 ## X-Category: Bags & Inventory
 ## SavedVariables: LibsIHDB
-## OptionalDependencies: Baganator, Bagnon, AdiBags, SpartanUI
+## OptionalDependencies: Baganator, Bagnon, BagBrother, AdiBags, BetterBags, ElvUI, SpartanUI
 
 # Type definitions (LibsIH.definition.lua) are not packaged - for IDE support only
 
@@ -23,6 +23,9 @@ Core\Options.lua
 
 # Bag system integrations
 BagSystems\Baganator.lua
+BagSystems\Bagnon.lua
+BagSystems\BetterBags.lua
+BagSystems\ElvUI.lua
 BagSystems\Blizzard.lua
 
 # Main initialization

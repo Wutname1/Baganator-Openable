@@ -5,8 +5,10 @@ Never miss another openable item! `Lib's - Item Highlighter` adds animated glowi
 ## Supported bag addons
 
 - Blizzard default bags
+- [Bagnon](https://www.curseforge.com/wow/addons/bagnon)
 - [Baganator](https://www.curseforge.com/wow/addons/baganator)
 - [BetterBags](https://www.curseforge.com/wow/addons/better-bags)
+<!-- - [ElvUI](https://tukui.org/) -->
 
 ![Fast](https://media.forgecdn.net/attachments/1324/797/open-fast-gif.gif)
 

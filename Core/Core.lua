@@ -62,7 +62,17 @@ end
 local REP_USE_TEXT = QUEST_REPUTATION_REWARD_TOOLTIP:match('%%d%s*(.-)%s*%%s') or GetLocaleString('reputation with')
 
 -- SpartanUI Logger Integration
-local logger
+local logger = nil
+
+-- Initialize SpartanUI Logger integration
+local function InitializeSUILogger()
+	if SUI and SUI.Logger and SUI.Logger.RegisterAddon then
+		-- Register with SpartanUI Logger for proper external addon integration
+		logger = SUI.Logger.RegisterAddon("Lib's - Item Highlighter")
+		return true
+	end
+	return false
+end
 
 -- Logging function with SpartanUI integration
 local function Log(msg, level)
@@ -74,16 +84,7 @@ local function Log(msg, level)
 		SUI.Log(tostring(msg), 'LibsIH', level or 'info')
 	else
 		-- Fallback to print if SpartanUI is not available
-		-- print('LibsIH: ' .. tostring(msg))
-	end
-end
-
--- Initialize SpartanUI Logger
-local function InitializeSUILogging()
-	if SUI and SUI.Logger and SUI.Logger.RegisterAddon then
-		-- Register with SpartanUI Logger for proper external addon integration
-		logger = SUI.Logger.RegisterAddon("Lib's - Item Highlighter")
-		Log('Registered with SpartanUI Logger system')
+		print('LibsIH: ' .. tostring(msg))
 	end
 end
 
@@ -262,28 +263,54 @@ function addon:RegisterBagSystem(name, integration)
 	Log('Registered bag system: ' .. name)
 end
 
+function addon:GetAllAvailableBagSystems()
+	local availableSystems = {}
+
+	Log('Scanning for all available bag systems...')
+
+	-- Check all registered systems - integrate with everything that's available
+	for name, integration in pairs(bagSystems) do
+		if integration and integration.IsAvailable and integration:IsAvailable() then
+			Log('Found available bag system: ' .. name)
+			table.insert(availableSystems, {name = name, integration = integration})
+		end
+	end
+
+	if #availableSystems > 0 then
+		local systemNames = {}
+		for _, system in ipairs(availableSystems) do
+			table.insert(systemNames, system.name)
+		end
+		Log('Will integrate with all available systems: ' .. table.concat(systemNames, ', '))
+	else
+		Log('No bag systems detected')
+	end
+
+	return availableSystems
+end
+
+-- Legacy function for compatibility - now returns first available system or nil
 function addon:GetActiveBagSystem()
 	local systemName = self.DB.BagSystem
 
 	if systemName == 'auto' then
-		-- Auto-detect available bag systems
-		for name, integration in pairs(bagSystems) do
-			if integration.IsAvailable and integration:IsAvailable() then
-				Log('Auto-detected bag system: ' .. name)
-				return integration
-			end
-		end
-		return nil
+		local availableSystems = self:GetAllAvailableBagSystems()
+		return #availableSystems > 0 and availableSystems[1].integration or nil
 	else
+		-- Manual selection - respect user's choice for single system
+		Log('Using manually selected bag system: ' .. systemName)
 		return bagSystems[systemName]
 	end
 end
 
 function addon:OnInitialize()
 	-- Initialize SpartanUI Logger first
-	InitializeSUILogging()
+	InitializeSUILogger()
 
 	Log('LibsIH core initializing...')
+	if logger then
+		Log('Registered with SpartanUI Logger system')
+	end
 	-- Setup DB with global cache
 	---@class LibsIH.DB
 	local defaults = {
@@ -307,25 +334,61 @@ end
 function addon:OnEnable()
 	Log('LibsIH core enabling...')
 
-	-- Initialize active bag system
-	local bagSystem = self:GetActiveBagSystem()
-	if bagSystem then
-		Log('Enabling bag system: ' .. (bagSystem.name or 'unknown'))
-		if bagSystem.OnEnable then
-			bagSystem:OnEnable()
+	-- Store enabled systems for later cleanup
+	self.enabledBagSystems = {}
+
+	-- Enable all available bag systems
+	local availableSystems = self:GetAllAvailableBagSystems()
+	if #availableSystems > 0 then
+		for _, systemData in ipairs(availableSystems) do
+			local integration = systemData.integration
+			local name = systemData.name
+
+			Log('Enabling bag system: ' .. name)
+			if integration.OnEnable then
+				local success, error = pcall(function()
+					integration:OnEnable()
+				end)
+
+				if success then
+					table.insert(self.enabledBagSystems, integration)
+					Log('Successfully enabled ' .. name .. ' integration')
+				else
+					Log('Failed to enable ' .. name .. ' integration: ' .. tostring(error), 'error')
+				end
+			else
+				Log('Warning: ' .. name .. ' integration has no OnEnable method', 'warning')
+			end
 		end
+
+		Log('Enabled ' .. #self.enabledBagSystems .. ' bag system integrations')
 	else
-		Log('No compatible bag system found', 'warning')
+		Log('No compatible bag systems found', 'warning')
 	end
 end
 
 function addon:OnDisable()
 	Log('LibsIH core disabling...')
 
-	-- Disable active bag system
-	local bagSystem = self:GetActiveBagSystem()
-	if bagSystem and bagSystem.OnDisable then
-		bagSystem:OnDisable()
+	-- Stop global animation timer and cleanup all widgets
+	root.Animation.StopGlobalTimer()
+	root.Animation.CleanupAllWidgets()
+
+	-- Disable all enabled bag systems
+	if self.enabledBagSystems then
+		for _, integration in ipairs(self.enabledBagSystems) do
+			if integration.OnDisable then
+				local success, error = pcall(function()
+					integration:OnDisable()
+				end)
+
+				if not success then
+					Log('Error disabling bag system integration: ' .. tostring(error), 'error')
+				end
+			end
+		end
+		Log('Disabled ' .. #self.enabledBagSystems .. ' bag system integrations')
+		self.enabledBagSystems = {}
 	end
 
 	-- Cancel any running timers

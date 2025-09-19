@@ -6,6 +6,9 @@ local Log = root.Log
 local globalAnimationTimer = nil
 local animatingFrames = {}
 
+-- Global widget tracking to prevent duplicates across multiple bag systems
+local globalWidgetRegistry = {} -- [itemButton] = {widgetFrame, bagSystem, itemKey}
+
 function RGBToHex(rgbTable)
 	local r = math.floor(rgbTable.r * 255 + 0.5)
 	local g = math.floor(rgbTable.g * 255 + 0.5)
@@ -192,8 +195,21 @@ end
 ---@return Frame frame The indicator frame
 local count = 0
 local function CreateIndicatorFrame(parent)
+	-- Check if we already have a widget for this parent to prevent duplicates
+	if globalWidgetRegistry[parent] then
+		Log('Reusing existing widget for item button (multi-bag system active)', 'debug')
+		return globalWidgetRegistry[parent].widgetFrame
+	end
+
 	local frame = CreateFrame('Frame', 'LibsIH_IndicatorFrame' .. count, parent)
 	count = count + 1
+
+	-- Register this widget in the global registry
+	globalWidgetRegistry[parent] = {
+		widgetFrame = frame,
+		bagSystem = 'unknown', -- Will be updated by caller
+		itemKey = nil -- Will be updated by caller
+	}
 
 	-- Get parent size and use it for perfect alignment
 	local width = parent:GetWidth()
@@ -280,11 +296,27 @@ local function UpdateIndicatorFrame(frame, itemDetails)
 	return false
 end
 
+
+-- Cleanup all widgets (used when disabling addon)
+local function CleanupAllWidgets()
+	local count = 0
+	for parent, entry in pairs(globalWidgetRegistry) do
+		if entry.widgetFrame then
+			CleanupAnimation(entry.widgetFrame)
+			entry.widgetFrame:Hide()
+		end
+		count = count + 1
+	end
+	globalWidgetRegistry = {}
+	Log('Cleaned up ' .. count .. ' widgets from global registry')
+end
+
 -- Export animation functions
 root.Animation = {
 	CreateIndicatorFrame = CreateIndicatorFrame,
 	UpdateIndicatorFrame = UpdateIndicatorFrame,
 	CleanupAnimation = CleanupAnimation,
+	CleanupAllWidgets = CleanupAllWidgets,
 	StartGlobalTimer = StartGlobalTimer,
 	StopGlobalTimer = StopGlobalTimer
 }

@@ -26,8 +26,10 @@ local function GetOptions()
 				values = {
 					auto = 'Auto-detect',
 					baganator = 'Baganator',
-					blizzard = 'Blizzard Default',
 					bagnon = 'Bagnon',
+					betterbags = 'BetterBags',
+					elvui = 'ElvUI',
+					blizzard = 'Blizzard Default',
 					adibags = 'AdiBags'
 				},
 				get = function()

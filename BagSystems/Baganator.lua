@@ -4,7 +4,7 @@ local Log = root.Log
 
 ---@class BaganatorIntegration
 local BaganatorIntegration = {
-	name = "Baganator"
+	name = 'Baganator'
 }
 
 -- Check if Baganator is available
@@ -113,13 +113,8 @@ local function RefreshAllCornerWidgets()
 	)
 end
 
-function BaganatorIntegration:OnEnable()
-	if not self:IsAvailable() then
-		Log('Baganator not found or API not available, cannot register corner widget', 'error')
-		return
-	end
-
-	-- Register corner widget at top level like Baganator's own widgets
+-- Register corner widget at top level like Baganator's own widgets
+if BaganatorIntegration:IsAvailable() then
 	local success, err =
 		pcall(
 		function()
@@ -138,6 +133,15 @@ function BaganatorIntegration:OnEnable()
 		Log('Baganator corner widget registration ERROR: ' .. tostring(err), 'error')
 	else
 		Log('Baganator corner widget registered successfully')
+	end
+else
+	Log('Baganator not found or API not available, cannot register corner widget', 'error')
+end
+
+function BaganatorIntegration:OnEnable()
+	if not self:IsAvailable() then
+		Log('Baganator not available during OnEnable', 'warning')
+		return
 	end
 
 	-- Hook Blizzard bag functions that Baganator also hooks
@@ -172,4 +176,4 @@ end
 BaganatorIntegration.RefreshAllCornerWidgets = RefreshAllCornerWidgets
 
 -- Register this bag system
-addon:RegisterBagSystem("baganator", BaganatorIntegration)
+addon:RegisterBagSystem('baganator', BaganatorIntegration)
